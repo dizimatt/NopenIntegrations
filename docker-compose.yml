@@ -1,0 +1,18 @@
+version: "1"
+services:
+  nodejs:
+    image: "node:alpine"
+    user: "node"
+    working_dir: /home/node/app
+    environment:
+      - NODE_ENV=production
+    volumes:
+      - ./:/home/node/app
+    ports:
+          - "3000:3000"
+          - "8000:8000"
+    expose:
+      - "3000"
+#    command: "npm run start"
+    tty:  true
+
