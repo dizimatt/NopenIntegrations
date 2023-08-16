@@ -1,7 +1,7 @@
 const products = [
   {
     id: 6086253772984,
-    title: '"Sydney E-Riders" print onto Lazy Rolling Armoured Hoody',
+    title: '"(1)Sydney E-Riders" print onto Lazy Rolling Armoured Hoody',
     body_html:
       '<p>If you have recently purchased a Lazy Rolling Armoured Hoody 2020 from Ben Buckler Boards, you have the option to have the "Sydney E-Riders" own logo printed straight onto your own hoody</p>\n<p>This printing service comes with the following options</p>\n<ul>\n<li>placements: combinations of: front - left breast, back, arm<br>please leave comments if you would like to request a custom placement</li>\n</ul>\n<p><strong>important: </strong>Please don\'t forget to provide the following in your order comments</p>\n<ol>\n<li><span style="font-size: 1.4em;">Are you are providing the hoody yourself, or straight from a BBB purchase - please provide any other details (i.e. availability to drop off at the studio)</span></li>\n<li><span style="font-size: 1.4em;">would you like a logo to be placed on either arm? please specify which</span></li>\n</ol>',
     vendor: "Openresourcing",

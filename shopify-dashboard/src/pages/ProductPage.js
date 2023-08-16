@@ -1,28 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import products from '../shopify-product-content';
 import ProductNotFoundPage from "./ProductNotFoundPage";
 
 const ProductPage =  () => {
     const [productInfo, setProductInfo] = useState ({ status: "inactive" });
     const { productId } = useParams();
 
-
     useEffect(() => {
         const loadProductInfo= async () => {
-//            console.log("loading product");
             const response = await axios.get(`/api/product/${productId}`);
             const newProductInfo = response.data.product;
-//            console.log(newProductInfo);
-            setProductInfo(newProductInfo);    
+            setProductInfo(newProductInfo);
         };
         loadProductInfo();
     },[]);
 
-    console.log(productInfo);
     const product=productInfo;
-    //products.find(product => product.id.toString() === productId);
 
     if  (!product){
         return <ProductNotFoundPage /> ;

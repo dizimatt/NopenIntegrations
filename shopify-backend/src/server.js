@@ -28,7 +28,7 @@ app.get('/api/product/:productId',(req, res) => {
         res.send({product: product});
     } else {
         res.send({
-            error: "product  not found"
+            error: "product not found"
         });
     }
 //    res.send(products);
