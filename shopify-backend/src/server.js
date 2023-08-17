@@ -1,5 +1,6 @@
 import express, { json } from 'express';
-import products from './shopify-product-content.js';
+import ProductsList from './components/ProductsList.js';
+import Product from './components/Product.js';
 
 const app = express();
 app.use(express.json());
@@ -23,7 +24,8 @@ app.get('/hello/:name', (req, res) => {
 
 app.get('/api/product/:productId',(req, res) => {
     const { productId } = req.params;
-    const product=products.find(product => product.id.toString() === productId);
+    const product= Product(productId);
+    
     if (product) {
         res.send({product: product});
     } else {
@@ -34,7 +36,7 @@ app.get('/api/product/:productId',(req, res) => {
 //    res.send(products);
 });
 app.get('/api/products',(req, res) => {
-    res.send({products: products});
+    res.send( ProductsList() );
 });
 
 app.listen(8000, () => {
