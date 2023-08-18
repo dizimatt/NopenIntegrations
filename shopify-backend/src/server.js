@@ -1,10 +1,18 @@
 import '@shopify/shopify-api/adapters/node';
-import {shopifyApi, LATEST_API_VERSION, Session} from '@shopify/shopify-api';
-import express, { json } from 'express';
+import {shopifyApi, LATEST_API_VERSION, ApiVersion} from '@shopify/shopify-api';
+import express from 'express';
 import ProductsList from './components/ProductsList.js';
 import Product from './components/Product.js';
 
-const session = Session;
+const session = {
+    "id": "offline_openresourcing.myshopify.com",
+    "shop": "openresourcing.myshopify.com",
+    "state": "192801790526280",
+    "isOnline": false,
+    "accessToken": "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",
+    "scope": "read_products"
+};
+
 const shopify = shopifyApi({
     apiKey: '0528d6d32590c36a23635ebdf149df6d',
     apiSecretKey: 'f6fb72c025be48548e0ce4f9d03caf29',
@@ -59,8 +67,32 @@ app.get('/hello/:name', (req, res) => {
 });
 */
 
-app.get('/api/product/:productId',(req, res) => {
+app.get('/api/product/:productId', async (req, res) => {
     const { productId } = req.params;
+
+    const sessionId = "offline_openresourcing.myshopify.com";
+      
+      // get a single product via its product id
+      const client = new shopify.clients.Rest({
+        session,
+        apiVersion: ApiVersion.January23,
+      });
+
+      const product = await client.get({
+        path: `products/${productId}.json`,
+        query: {id:1, title: "title"}
+      }).catch((err) => {
+        const product = {};
+      });
+
+      const newProduct = {product:{}};
+      if (product !== undefined){
+        newProduct.product = product.body.product;
+      }
+//      const product = await shopify.rest.Product.find({session, id: '7504536535062'});
+
+      res.send(newProduct);
+/*
     const product= Product(productId);
     
     if (product) {
@@ -71,6 +103,7 @@ app.get('/api/product/:productId',(req, res) => {
         });
     }
 //    res.send(products);
+*/
 });
 app.get('/api/products',(req, res) => {
     res.send( ProductsList() );
