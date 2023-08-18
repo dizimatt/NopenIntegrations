@@ -25,7 +25,6 @@ const ProductPage =  () => {
     return (
         //{{ __html: sanitize(product.body_html) }}
         <>
-        <script type="text/javascript">alert("testing");</script>
         <h1>{product.title}</h1>
         <p>This product status is: {productInfo.status}</p>
         {product.body_html
