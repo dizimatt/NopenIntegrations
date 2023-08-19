@@ -1,4 +1,4 @@
-version: "1"
+version: "3.1"
 services:
   nodejs:
     image: "node:alpine"
@@ -16,3 +16,21 @@ services:
 #    command: "npm run start"
     tty:  true
 
+  mongo:
+    image: mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: D0z1n2ss
+    volumes:
+      - mongoDataBase:/data/db 
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    expose:
+      - "27017"
+    ports:
+    - "27017:27017"
+
+
+volumes:
+  mongoDataBase:
+    driver: local
