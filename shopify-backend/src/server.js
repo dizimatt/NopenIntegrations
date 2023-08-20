@@ -1,9 +1,10 @@
 import '@shopify/shopify-api/adapters/node';
 import {shopifyApi, LATEST_API_VERSION, ApiVersion} from '@shopify/shopify-api';
 import express from 'express';
-import ProductsList from './components/ProductsList.js';
-import Product from './components/Product.js';
+import {MongoClient} from 'mongodb';
+import {HMAC, AuthError} from "hmac-auth-express";
 
+const AccessToken = "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";
 const session = {
     "id": "offline_openresourcing.myshopify.com",
     "shop": "openresourcing.myshopify.com",
@@ -20,9 +21,29 @@ const shopify = shopifyApi({
     hostName: 'b2bd-116-89-24-12.ngrok-free.app',
 });
 
-
 const app = express();
 app.use(express.json());
+
+app.use("/api/product", HMAC("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"));
+
+// express' error handler
+app.use((error, req, res, next) => {
+    // check by error instance
+    if (error instanceof AuthError) {
+      res.status(401).json({
+        error: "Invalid request",
+        info: error.message,
+      });
+    }
+  
+    // alternative: check by error code
+    if (error.code === "ERR_HMAC_AUTH_INVALID") {
+      res.status(401).json({
+        error: "Invalid request",
+        info: error.message,
+      });
+    }
+  });
 
 app.get('/',(req, res) => {
     res.send('<html><body><h1>you\'ve reached the api endpoints - please contact support for api documentation</h1></body></html>');
@@ -53,21 +74,25 @@ app.get('/auth/callback', async (req, res) => {
 
 //    res.redirect('/my-apps-entry-page');
 });
-/*
-app.post('/hello',(req, res) => {
-    res.send({
-       hellomessage: req.body.name
-    });
-    //`Hello ${req.body.name}! (from post endpoint)`);
-});
-
-app.get('/hello/:name', (req, res) => {
-    const {name} = req.params;
-    res.send(`hello ${name}!!`);
-});
-*/
 
 app.get('/api/product/:productId', async (req, res) => {
+    const { productId } = req.params;
+    console.log(`Authorization:${req.get('Authorization')}`);
+
+    const client = new MongoClient('mongodb://openresourcing:D0z1n2ss@mongo:27017/shopify');
+    await client.connect();
+
+    const db = client.db('shopify');
+
+    const product = await db.collection('products').findOne({id: parseInt(productId)});
+    if (product){
+        res.json({product});
+    } else {
+        res.sendStatus(404);
+    }
+});
+
+app.get('/api/product-from-shopify/:productId', async (req, res) => {
     const { productId } = req.params;
 
     const sessionId = "offline_openresourcing.myshopify.com";
@@ -92,38 +117,22 @@ app.get('/api/product/:productId', async (req, res) => {
 //      const product = await shopify.rest.Product.find({session, id: '7504536535062'});
 
       res.send(newProduct);
-/*
-    const product= Product(productId);
-    
-    if (product) {
-        res.send({product: product});
-    } else {
-        res.send({
-            error: "product not found"
-        });
+});
+
+app.get('/api/products', async (req, res) => {
+
+    const client = new MongoClient('mongodb://openresourcing:D0z1n2ss@mongo:27017/shopify');
+    await client.connect();
+
+    const db = client.db('shopify');
+
+    const productsCursor = await db.collection('products').find({});
+    const products = [];
+    for await (const product of productsCursor){
+        products.push(product);
     }
-//    res.send(products);
-*/
-});
-app.get('/api/products',(req, res) => {
-    res.send( ProductsList() );
-});
 
-app.get('/api/test-shopify',(req, res) => {
-    /*
-    const shopify = new Shopify({
-        shopName: 'openresourcing',
-        apiKey: '22d155352683f672fae593e2b05f3437',
-        password: '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',
-        accessToken: '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' 
-      });
-
-    shopify.product
-        .get('6086253772984')
-        .then((product) => console.log(product))
-        .catch((err) => console.error(err));
-    */
-    res.send( {result: "successfull"} );
+    res.json({products});
 });
 
 app.listen(8000, () => {

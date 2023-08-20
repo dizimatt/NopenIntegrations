@@ -2,12 +2,13 @@ version: "3.1"
 services:
   nodejs:
     image: "node:alpine"
-    user: "node"
-    working_dir: /home/node/app
+#    image: "ageapps/docker-node-mongo"
+#    user: "node"
+    working_dir: /code/shopify-dashboard
     environment:
       - NODE_ENV=production
     volumes:
-      - ./:/home/node/app
+      - ./:/code
     ports:
           - "3000:3000"
           - "8000:8000"
