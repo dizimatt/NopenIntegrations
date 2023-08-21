@@ -25,7 +25,7 @@ const shopify = shopifyApi(shopifyAPICreds);
 const app = express();
 app.use(express.json());
 
-//app.use("/api/", HMAC(session.accessToken));
+// app.use("/api/", HMAC(session.accessToken));
 
 // express' error handler
 app.use((error, req, res, next) => {
@@ -136,6 +136,46 @@ app.get('/api/product-from-shopify/:productId', async (req, res) => {
       res.send(newProduct);
 });
 
+app.get('/api/shopify/products/index', async (req, res) => {
+      
+  // get a single product via its product id
+  const client = new shopify.clients.Rest({
+    session,
+    apiVersion: ApiVersion.January23,
+  });
+
+  const productsResults = await client.get({
+    path: `products`
+  }).catch((err) => {
+    const productsResults = {};
+  });
+
+  const finalProducts = [];
+  if (productsResults){
+    const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
+    await mongoClient.connect();
+  
+    const db = mongoClient.db('shopify');
+    productsResults.body.products.forEach(product => { 
+      finalProducts.push(product);
+
+      //now write the same product back to mogodb
+      const productsCursor = db.collection('products').insertOne(product)
+      .catch((err) => {
+        res.send({mongoerror: err});
+      });
+  
+    });
+
+  
+  
+  }
+
+  res.send(finalProducts);
+
+
+
+});
 
 app.listen(8000, () => {
     console.log('Server is listening on port 8000');
