@@ -1,30 +1,31 @@
 import '@shopify/shopify-api/adapters/node';
 import {shopifyApi, LATEST_API_VERSION, ApiVersion} from '@shopify/shopify-api';
-import express from 'express';
+import express, { json } from 'express';
 import {MongoClient} from 'mongodb';
 import {HMAC, AuthError} from "hmac-auth-express";
+import dotenv from 'dotenv';
+dotenv.config();
 
-const AccessToken = "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";
 const session = {
-    "id": "offline_openresourcing.myshopify.com",
-    "shop": "openresourcing.myshopify.com",
-    "state": "192801790526280",
-    "isOnline": false,
-    "accessToken": "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",
-    "scope": "read_products"
+  "id": process.env.SHOPIFY_SESSION_ID,
+  "shop": process.env.SHOPIFY_SESSION_SHOP,
+  "state": process.env.SHOPIFY_SESSION_STATE,
+  "isOnline": false,
+  "accessToken": process.env.SHOPIFY_ACCESS_TOKEN,
+  "scope": process.env.SHOPIFY_SESSION_SCOPE
+}
+const shopifyAPICreds = {
+  apiKey: process.env.SHOPIFY_API_KEY,
+  apiSecretKey: process.env.SHOPIFY_API_SECRET_KEY,
+  scopes: process.env.SHOPIFY_SCOPES.split(", "),
+  hostName: process.env.SHOPIFY_HOSTNAME,
 };
-
-const shopify = shopifyApi({
-    apiKey: '0528d6d32590c36a23635ebdf149df6d',
-    apiSecretKey: 'f6fb72c025be48548e0ce4f9d03caf29',
-    scopes: ['read_products'],
-    hostName: 'b2bd-116-89-24-12.ngrok-free.app',
-});
+const shopify = shopifyApi(shopifyAPICreds);
 
 const app = express();
 app.use(express.json());
 
-app.use("/api/product", HMAC("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"));
+//app.use("/api/", HMAC(session.accessToken));
 
 // express' error handler
 app.use((error, req, res, next) => {
@@ -49,6 +50,7 @@ app.get('/',(req, res) => {
     res.send('<html><body><h1>you\'ve reached the api endpoints - please contact support for api documentation</h1></body></html>');
 });
 
+// next two functions are the shopify app installation functions - add these endpoints into the shopify app config BEFORE installing
 app.get('/auth', async (req, res) => {
     // The library will automatically redirect the user
     await shopify.auth.begin({
@@ -74,12 +76,28 @@ app.get('/auth/callback', async (req, res) => {
 
 //    res.redirect('/my-apps-entry-page');
 });
+// end of shopify installations functions
+
+app.get('/api/products', async (req, res) => {
+
+  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+  await client.connect();
+
+  const db = client.db('shopify');
+
+  const productsCursor = await db.collection('products').find({});
+  const products = [];
+  for await (const product of productsCursor){
+      products.push(product);
+  }
+
+  res.json({products});
+});
 
 app.get('/api/product/:productId', async (req, res) => {
     const { productId } = req.params;
-    console.log(`Authorization:${req.get('Authorization')}`);
 
-    const client = new MongoClient('mongodb://openresourcing:D0z1n2ss@mongo:27017/shopify');
+    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
     await client.connect();
 
     const db = client.db('shopify');
@@ -95,7 +113,6 @@ app.get('/api/product/:productId', async (req, res) => {
 app.get('/api/product-from-shopify/:productId', async (req, res) => {
     const { productId } = req.params;
 
-    const sessionId = "offline_openresourcing.myshopify.com";
       
       // get a single product via its product id
       const client = new shopify.clients.Rest({
@@ -119,21 +136,6 @@ app.get('/api/product-from-shopify/:productId', async (req, res) => {
       res.send(newProduct);
 });
 
-app.get('/api/products', async (req, res) => {
-
-    const client = new MongoClient('mongodb://openresourcing:D0z1n2ss@mongo:27017/shopify');
-    await client.connect();
-
-    const db = client.db('shopify');
-
-    const productsCursor = await db.collection('products').find({});
-    const products = [];
-    for await (const product of productsCursor){
-        products.push(product);
-    }
-
-    res.json({products});
-});
 
 app.listen(8000, () => {
     console.log('Server is listening on port 8000');
