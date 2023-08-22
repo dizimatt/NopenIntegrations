@@ -19,7 +19,6 @@ function App() {
           <Route path="/products" element={<ProductsListPage />} />
           <Route path="/product/:productId" element={<ProductPage />} />
           <Route path="/notfound" element={<NotFoundPage />} />
-          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </div>
     </div>
