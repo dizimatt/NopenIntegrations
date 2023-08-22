@@ -30,7 +30,7 @@ const ProductPage =  () => {
             setProductInfo(newProductInfo);
         };
         loadProductInfo();
-    },[productId,hmac]);
+    },[]);
 
     const product=productInfo;
 

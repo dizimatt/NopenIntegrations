@@ -156,6 +156,9 @@ app.get('/api/shopify/products/index', async (req, res) => {
     await mongoClient.connect();
   
     const db = mongoClient.db('shopify');
+
+    db.collection('products').deleteMany({});
+
     productsResults.body.products.forEach(product => { 
       finalProducts.push(product);
 
