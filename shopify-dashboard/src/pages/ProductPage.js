@@ -8,7 +8,8 @@ import {Link} from 'react-router-dom';
 const ProductPage = () => {
     
     const [productInfo, setProductInfo] = useState ({});
-    var { productId } = useParams();
+    const { productId } = useParams();
+    var [idToFetch, setIdToFetch] = useState (productId);
 
     // construct the HMAC header so t he api server authorises it...
     const DateNow = Date.now();
@@ -26,14 +27,12 @@ const ProductPage = () => {
                     "Content-Type": "application/json"
                 }
             }
-            const response = await axios.get(`/api/product/${productId}`,config);
-            const newProductInfo = response.data.product;
-
-            setProductInfo(newProductInfo);
+            const response = await axios.get(`/api/product/${idToFetch}`,config);
+            setProductInfo(response.data.product);
             console.log(`finished... set status to ${productInfo.status}`)
         };
         loadProductInfo();
-    },[productInfo.status]);
+    },[idToFetch]);
 
     if  (!productInfo){
         return <ProductNotFoundPage /> ;
@@ -42,6 +41,7 @@ const ProductPage = () => {
     function changeStatus(e, newStatus) {
         console.log(`about to trigger to set the status to : ${newStatus}`);
         productInfo.status = newStatus;
+        setIdToFetch(7255537811640);
     }
 
     return (
