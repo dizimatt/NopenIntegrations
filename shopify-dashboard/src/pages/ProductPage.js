@@ -33,7 +33,7 @@ const ProductPage = () => {
             console.log(`finished... set status to ${productInfo.status}`)
         };
         loadProductInfo();
-    },[]);
+    },[productInfo.status]);
 
     if  (!productInfo){
         return <ProductNotFoundPage /> ;
@@ -41,7 +41,6 @@ const ProductPage = () => {
 
     function changeStatus(e, newStatus) {
         console.log(`about to trigger to set the status to : ${newStatus}`);
-        productInfo.title = "fff";
         productInfo.status = newStatus;
     }
 
