@@ -1,6 +1,7 @@
 FROM node:alpine
 # PHP extensions
 RUN apk add nginx
+RUN npm install pm2 -g
 
 # COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 COPY ./nginx-conf/default.conf /etc/nginx/http.d/default.conf
