@@ -18,6 +18,7 @@ function App() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/products" element={<ProductsListPage />} />
           <Route path="/product/:productId" element={<ProductPage />} />
+          <Route path="/Products/Reindex" element={<HomePage />} />
           <Route path="/notfound" element={<NotFoundPage />} />
         </Routes>
       </div>
