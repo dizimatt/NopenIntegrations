@@ -6,21 +6,55 @@ import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
 dotenv.config();
 
-const session = {
-  "id": process.env.SHOPIFY_SESSION_ID,
-  "shop": process.env.SHOPIFY_SESSION_SHOP,
-  "state": process.env.SHOPIFY_SESSION_STATE,
-  "isOnline": false,
-  "accessToken": process.env.SHOPIFY_ACCESS_TOKEN,
-  "scope": process.env.SHOPIFY_SESSION_SCOPE
-}
-const shopifyAPICreds = {
-  apiKey: process.env.SHOPIFY_API_KEY,
-  apiSecretKey: process.env.SHOPIFY_API_SECRET_KEY,
-  scopes: process.env.SHOPIFY_SCOPES.split(", "),
-  hostName: process.env.SHOPIFY_HOSTNAME,
+const session = {};
+const shopifyAPICreds = {};
+
+const fetchShopifySession = async () => {
+  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+  await client.connect();
+
+  const db = client.db('shopify');
+
+  console.log(`app_name::  ${process.env.APP_NAME}`);
+  const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
+
+  if (ShopifySession){
+    session.id  = ShopifySession.SHOPIFY_SESSION_ID; 
+    session.shop = ShopifySession.SHOPIFY_SESSION_SHOP;
+    session.state = ShopifySession.SHOPIFY_SESSION_STATE;
+    session.isOnline = false;
+    session.accessToken =  ShopifySession.SHOPIFY_ACCESS_TOKEN;
+    session.scope = ShopifySession.SHOPIFY_SESSION_SCOPE;
+  }
+  return true;
 };
-const shopify = shopifyApi(shopifyAPICreds);
+
+const fetchShopifyAPICreds = async () => {
+  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+  await client.connect();
+
+  const db = client.db('shopify');
+
+  const ShopifyApp = await db.collection('shopifyApp').findOne({APP_NAME: process.env.APP_NAME});
+
+  if (ShopifyApp){
+    shopifyAPICreds.apiKey = ShopifyApp.SHOPIFY_API_KEY; 
+    shopifyAPICreds.apiSecretKey = ShopifyApp.SHOPIFY_API_SECRET_KEY;
+    shopifyAPICreds.scopes = ShopifyApp.SHOPIFY_SCOPES.split(", ");
+    shopifyAPICreds.hostName = ShopifyApp.SHOPIFY_HOSTNAME;
+  }
+  return true;
+};
+
+await fetchShopifyAPICreds();
+await fetchShopifySession();
+
+var shopify;
+try{
+  shopify = shopifyApi(shopifyAPICreds);
+}catch(err){
+  console.log(`errored in initialising the shopifyapi: ${err.message} `);
+};
 
 const app = express();
 app.use(express.json());
@@ -111,73 +145,78 @@ app.get('/api/product/:productId', async (req, res) => {
 });
 
 app.get('/api/product-from-shopify/:productId', async (req, res) => {
-    const { productId } = req.params;
+
+  console.log(`latest session access token: ${session.accessToken}`);
+
+  const { productId } = req.params;
 
       
       // get a single product via its product id
-      const client = new shopify.clients.Rest({
-        session,
-        apiVersion: ApiVersion.January23,
-      });
+      try{
+        const client = new shopify.clients.Rest({
+          session,
+          apiVersion: ApiVersion.January23,
+        });
+        const product = await client.get({
+          path: `products/${productId}.json`,
+          query: {id:1, title: "title"}
+        }).catch((err) => {
+          const product = {};
+        });
 
-      const product = await client.get({
-        path: `products/${productId}.json`,
-        query: {id:1, title: "title"}
-      }).catch((err) => {
-        const product = {};
-      });
-
-      const newProduct = {product:{}};
-      if (product !== undefined){
-        newProduct.product = product.body.product;
+        const newProduct = {product:{}};
+        if (product !== undefined){
+          newProduct.product = product.body.product;
+        }
+    //      const product = await shopify.rest.Product.find({session, id: '7504536535062'});
+  
+        res.send(newProduct);
+      }catch(err){
+        console.log(`error  in callingthe shopify client api: ${err.message}`);
+        res.send({failed:true, error: err.message});
       }
-//      const product = await shopify.rest.Product.find({session, id: '7504536535062'});
-
-      res.send(newProduct);
 });
 
 app.get('/api/shopify/products/index', async (req, res) => {
-      
-  // get a single product via its product id
-  const client = new shopify.clients.Rest({
-    session,
-    apiVersion: ApiVersion.January23,
-  });
 
-  const productsResults = await client.get({
-    path: `products`
-  }).catch((err) => {
-    const productsResults = {};
-  });
-
-  const finalProducts = [];
-  if (productsResults){
-    const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
-    await mongoClient.connect();
-  
-    const db = mongoClient.db('shopify');
-
-    db.collection('products').deleteMany({});
-
-    productsResults.body.products.forEach(product => { 
-      finalProducts.push(product);
-
-      //now write the same product back to mogodb
-      const productsCursor = db.collection('products').insertOne(product)
-      .catch((err) => {
-        res.send({mongoerror: err});
-      });
-  
+  try{
+    // get a single product via its product id
+    const client = new shopify.clients.Rest({
+      session,
+      apiVersion: ApiVersion.January23,
     });
 
-  
-  
+    const productsResults = await client.get({
+      path: `products`
+    }).catch((err) => {
+      const productsResults = {};
+    });
+
+    const finalProducts = [];
+    if (productsResults){
+      const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
+      await mongoClient.connect();
+    
+      const db = mongoClient.db('shopify');
+
+      db.collection('products').deleteMany({});
+
+      productsResults.body.products.forEach(product => { 
+        finalProducts.push(product);
+
+        //now write the same product back to mogodb
+        const productsCursor = db.collection('products').insertOne(product)
+        .catch((err) => {
+          res.send({mongoerror: err});
+        });
+    
+      });
+    }
+    res.send(finalProducts);
+  } catch(err) {
+    console.log(`error  in callingthe shopify client api: ${err.message}`);
+    res.send({failed:true, error: err.message});
   }
-
-  res.send(finalProducts);
-
-
-
 });
 
 app.listen(8000, () => {
