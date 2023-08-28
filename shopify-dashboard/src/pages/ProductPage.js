@@ -14,7 +14,7 @@ const ProductPage = () => {
     // construct the HMAC header so t he api server authorises it...
     const DateNow = Date.now();
     const time = DateNow.toString();
-    const digest = generate(process.env.REACT_APP_SHOPIFY_ACCESS_TOKEN, "sha256", time, "GET", `/api/product/${productId}`, {}).digest("hex");
+    const digest = generate("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", "sha256", time, "GET", `/api/product/${productId}`, {}).digest("hex");
 
     const hmac = `HMAC ${time}:${digest}`;
 

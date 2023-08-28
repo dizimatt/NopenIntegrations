@@ -6,12 +6,13 @@ import ProductsList from '../components/ProductsList';
 import { generate} from "hmac-auth-express";
 import ProductsListPageNavBar from "../ProductsListPageNavBar";
 
+
 const ProductsListPage = () => {
     const [productsList, setProductsList] = useState ([]);
 
     const DateNow = Date.now();
     const time = DateNow.toString();
-    const digest = generate(process.env.REACT_APP_SHOPIFY_ACCESS_TOKEN, "sha256", time, "GET", `/api/products`, {}).digest("hex");
+    const digest = generate("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", "sha256", time, "GET", `/api/products`, {}).digest("hex");
 
     const hmac = `HMAC ${time}:${digest}`;
 
