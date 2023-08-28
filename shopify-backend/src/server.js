@@ -59,7 +59,7 @@ try{
 const app = express();
 app.use(express.json());
 
-// app.use("/api/", HMAC(session.accessToken));
+//app.use("/api/", HMAC(session.accessToken));
 
 // express' error handler
 app.use((error, req, res, next) => {
@@ -86,6 +86,7 @@ app.get('/',(req, res) => {
 
 // next two functions are the shopify app installation functions - add these endpoints into the shopify app config BEFORE installing
 app.get('/auth', async (req, res) => {
+  console.log("auth...");
     // The library will automatically redirect the user
     await shopify.auth.begin({
       shop: shopify.utils.sanitizeShop(req.query.shop, true),
@@ -102,10 +103,44 @@ app.get('/auth/callback', async (req, res) => {
         rawResponse: res,
     });
 
+
     console.log("sending authcallback: %o",callback);
     res.send({
         authCallback: callback
     });
+
+    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+    await client.connect();
+  
+    const db = client.db('shopify');
+
+    /*
+    const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
+
+    if (ShopifySession){
+      session.id  = ShopifySession.SHOPIFY_SESSION_ID; 
+      session.shop = ShopifySession.SHOPIFY_SESSION_SHOP;
+      session.state = ShopifySession.SHOPIFY_SESSION_STATE;
+      session.isOnline = false;
+      session.accessToken =  ShopifySession.SHOPIFY_ACCESS_TOKEN;
+      session.scope = ShopifySession.SHOPIFY_SESSION_SCOPE;
+    }
+  */
+    const shopifySessionCursor = db.collection('shopifySession').insertOne(
+      {
+        APP_NAME: process.env.APP_NAME,
+        SHOPIFY_SESSION_ID: callback.session.id,
+        SHOPIFY_SESSION_SHOP: callback.session.shop,
+        SHOPIFY_SESSION_STATE: callback.session.state,
+        SHOPIFY_ACCESS_TOKEN: callback.session.accessToken,
+        SHOPIFY_SESSION_SCOPE: callback.session.scope
+      }
+    )
+    .catch((err) => {
+      res.send({mongoerror: err});
+    });
+
+
     // You can now use callback.session to make API requests
 
 //    res.redirect('/my-apps-entry-page');

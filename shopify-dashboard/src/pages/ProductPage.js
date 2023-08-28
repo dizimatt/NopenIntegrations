@@ -19,7 +19,6 @@ const ProductPage = () => {
     const hmac = `HMAC ${time}:${digest}`;
 
     useEffect(() => {
-        console.log("loading");
         const loadProductInfo= async () => {
             const config = {
                 headers: {
@@ -29,7 +28,6 @@ const ProductPage = () => {
             }
             const response = await axios.get(`/api/product/${idToFetch}`,config);
             setProductInfo(response.data.product);
-            console.log(`finished... set status to ${productInfo.status}`)
         };
         loadProductInfo();
     },[idToFetch]);
