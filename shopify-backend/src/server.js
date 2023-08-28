@@ -114,18 +114,6 @@ app.get('/auth/callback', async (req, res) => {
   
     const db = client.db('shopify');
 
-    /*
-    const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
-
-    if (ShopifySession){
-      session.id  = ShopifySession.SHOPIFY_SESSION_ID; 
-      session.shop = ShopifySession.SHOPIFY_SESSION_SHOP;
-      session.state = ShopifySession.SHOPIFY_SESSION_STATE;
-      session.isOnline = false;
-      session.accessToken =  ShopifySession.SHOPIFY_ACCESS_TOKEN;
-      session.scope = ShopifySession.SHOPIFY_SESSION_SCOPE;
-    }
-  */
     const shopifySessionCursor = db.collection('shopifySession').insertOne(
       {
         APP_NAME: process.env.APP_NAME,
