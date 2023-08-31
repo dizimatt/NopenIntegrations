@@ -1,5 +1,5 @@
 import '@shopify/shopify-api/adapters/node';
-import {shopifyApi, LATEST_API_VERSION, ApiVersion} from '@shopify/shopify-api';
+import shopify, {shopifyApi, LATEST_API_VERSION, ApiVersion, DataType} from '@shopify/shopify-api';
 import express, { json } from 'express';
 import {MongoClient} from 'mongodb';
 import {HMAC, AuthError} from "hmac-auth-express";
@@ -49,9 +49,9 @@ const fetchShopifyAPICreds = async () => {
 await fetchShopifyAPICreds();
 await fetchShopifySession();
 
-var shopify;
+var shopifyApiClient;
 try{
-  shopify = shopifyApi(shopifyAPICreds);
+  shopifyApiClient = shopifyApi(shopifyAPICreds);
 }catch(err){
   console.log(`errored in initialising the shopifyapi: ${err.message} `);
 };
@@ -88,8 +88,8 @@ app.get('/',(req, res) => {
 app.get('/auth', async (req, res) => {
   console.log("auth...");
     // The library will automatically redirect the user
-    await shopify.auth.begin({
-      shop: shopify.utils.sanitizeShop(req.query.shop, true),
+    await shopifyApiClient.auth.begin({
+      shop: shopifyApiClient.utils.sanitizeShop(req.query.shop, true),
       callbackPath: '/auth/callback',
       isOnline: false,
       rawRequest: req,
@@ -98,7 +98,7 @@ app.get('/auth', async (req, res) => {
 });
 app.get('/auth/callback', async (req, res) => {
     // The library will automatically set the appropriate HTTP headers
-    const callback = await shopify.auth.callback({
+    const callback = await shopifyApiClient.auth.callback({
         rawRequest: req,
         rawResponse: res,
     });
@@ -176,7 +176,7 @@ app.get('/api/product-from-shopify/:productId', async (req, res) => {
       
       // get a single product via its product id
       try{
-        const client = new shopify.clients.Rest({
+        const client = new shopifyApiClient.clients.Rest({
           session,
           apiVersion: ApiVersion.January23,
         });
@@ -200,14 +200,42 @@ app.get('/api/product-from-shopify/:productId', async (req, res) => {
       }
 });
 
+app.get('/api/shopify/products', async (req, res) => {
+
+      
+      // get a single product via its product id
+      try{
+        const client = new shopifyApiClient.clients.Rest({
+          session,
+          apiVersion: ApiVersion.January23,
+        });
+        const products = await client.get({
+          path: `products.json`
+        }).catch((err) => {
+            const products = {};
+        });
+
+        const allProducts = {products:[]};
+        if (products !== undefined){
+          allProducts.products = products.body.products;
+        }
+  
+        res.send(allProducts);
+      }catch(err){
+        console.log(`error  in callingthe shopify client api: ${err.message}`);
+        res.send({failed:true, error: err.message});
+      }
+});
+
 app.get('/api/shopify/products/index', async (req, res) => {
 
   try{
     // get a single product via its product id
-    const client = new shopify.clients.Rest({
+    const client = new shopifyApiClient.clients.Rest({
       session,
       apiVersion: ApiVersion.January23,
     });
+
 
     const productsResults = await client.get({
       path: `products`
@@ -236,6 +264,36 @@ app.get('/api/shopify/products/index', async (req, res) => {
       });
     }
     res.send(finalProducts);
+  } catch(err) {
+    console.log(`error  in callingthe shopify client api: ${err.message}`);
+    res.send({failed:true, error: err.message});
+  }
+});
+
+app.post('/api/shopify/products/import', async (req, res) => {
+
+  try{
+    // get a single product via its product id
+    const client = new shopifyApiClient.clients.Rest({
+      session,
+      apiVersion: ApiVersion.January23,
+    });
+
+    const body = req.body;
+    if (req.body.products !== undefined){
+      req.body.products.forEach( async product => {
+        const productsResults = await client.post({
+          path: `products`,
+          data: {
+            product: product
+          },
+          type: DataType.JSON
+        }).catch((err) => {
+          const productsResults = {};
+        });
+      });      
+    }
+    res.send(body);
   } catch(err) {
     console.log(`error  in callingthe shopify client api: ${err.message}`);
     res.send({failed:true, error: err.message});

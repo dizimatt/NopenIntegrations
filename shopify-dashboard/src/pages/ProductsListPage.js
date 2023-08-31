@@ -27,7 +27,7 @@ const ProductsListPage = () => {
             setProductsList(newProductsList);
         };
         loadProductsList();
-    },[]);
+    },[hmac]);
 
     return (
         <>
