@@ -4,6 +4,8 @@ import express, { json } from 'express';
 import {MongoClient} from 'mongodb';
 import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
+import csvToJson from 'csvtojson';
+
 dotenv.config();
 
 const session = {};
@@ -57,6 +59,27 @@ try{
 };
 
 const app = express();
+
+function rawBody(req, res, next) {
+  if (req.is('text/*') == "text/plain"){
+    req.setEncoding('utf8');
+    req.rawBody = '';
+    req.on('data', function(chunk) {
+      req.rawBody += chunk;
+    });
+    req.on('end', function(){
+      next();
+    });
+  } else {
+    next();
+  }
+}
+app.use(rawBody);
+
+  //app.use(express.bodyParser());
+//  app.use(express.methodOverride());
+
+
 app.use(express.json());
 
 //app.use("/api/", HMAC(session.accessToken));
@@ -167,7 +190,7 @@ app.get('/api/product/:productId', async (req, res) => {
     }
 });
 
-app.get('/api/product-from-shopify/:productId', async (req, res) => {
+app.get('/api/shopify/product/:productId', async (req, res) => {
 
   console.log(`latest session access token: ${session.accessToken}`);
 
@@ -279,9 +302,23 @@ app.post('/api/shopify/products/import', async (req, res) => {
       apiVersion: ApiVersion.January23,
     });
 
+    //  console.log(`json returned: ${jsonString}`);
+    // res.send({returned: json});
+  
     const body = req.body;
-    if (req.body.products !== undefined){
-      req.body.products.forEach( async product => {
+    console.log("request body: %o",req.body);
+    console.log(req.is('text/*'));
+    console.log(req.is('json'));
+    console.log('RB: ' + req.rawBody);
+    console.log('B: ' + JSON.stringify(req.body));
+
+    if (req.rawBody !== undefined){
+
+      const products = await csvToJson().fromString(req.rawBody);
+      console.log(`products:%o`,products);
+
+      products.forEach( async product => {
+        console.log('will insert product: %o',product);
         const productsResults = await client.post({
           path: `products`,
           data: {
@@ -289,11 +326,14 @@ app.post('/api/shopify/products/import', async (req, res) => {
           },
           type: DataType.JSON
         }).catch((err) => {
+          console.log("product insert failed:" + err.message);
           const productsResults = {};
         });
-      });      
+     });
+      res.send(products);
+    } else {
+      res.send({failed_message:"couldn't find the products to insert!"});
     }
-    res.send(body);
   } catch(err) {
     console.log(`error  in callingthe shopify client api: ${err.message}`);
     res.send({failed:true, error: err.message});
@@ -303,3 +343,4 @@ app.post('/api/shopify/products/import', async (req, res) => {
 app.listen(8000, () => {
     console.log('Server is listening on port 8000');
 });
+
