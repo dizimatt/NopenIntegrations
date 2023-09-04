@@ -294,7 +294,6 @@ app.get('/api/shopify/products/index', async (req, res) => {
 });
 
 app.post('/api/shopify/products/import', async (req, res) => {
-
   try{
     // get a single product via its product id
     const client = new shopifyApiClient.clients.Rest({
@@ -332,6 +331,30 @@ app.post('/api/shopify/products/import', async (req, res) => {
           console.log("product insert failed:" + err.message + ": \nproduct payload:\n %o",product);
           const productsResults = {};
         });
+
+        // insert was successful, now need to retreve the product id...
+        const newProductId = productsResults.body.product.id;
+
+        const collectionUpdateResults = await client.put({
+          path: 'custom_collections/458941301022',
+          data: {
+            custom_collection:{
+              id: 458941301022,
+              collects: [
+                { 
+                  product_id: newProductId,
+                  position: 1
+                }
+              ]
+            }
+          },
+          type: DataType.JSON
+        }).catch((err) => {
+          console.log("collection update failed:" + err.message + ": \ncollection id: 458941301022, product id: " +newProductId);
+          const collectionUpdateResults = {};
+        });
+
+//        console.log(`generated productId: ${productsResults.body.product.id}`);
         
 
       });
