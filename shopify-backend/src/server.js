@@ -306,19 +306,20 @@ app.post('/api/shopify/products/import', async (req, res) => {
     // res.send({returned: json});
   
     const body = req.body;
+    /*
     console.log("request body: %o",req.body);
     console.log(req.is('text/*'));
     console.log(req.is('json'));
     console.log('RB: ' + req.rawBody);
     console.log('B: ' + JSON.stringify(req.body));
-
+*/
     if (req.rawBody !== undefined){
 
       const products = await csvToJson().fromString(req.rawBody);
-      console.log(`products:%o`,products);
+//      console.log(`products:%o`,products);
 
       products.forEach( async product => {
-        console.log('will insert product: %o',product);
+//        console.log('will insert product: %o',product);
 
         
         const productsResults = await client.post({
@@ -328,18 +329,19 @@ app.post('/api/shopify/products/import', async (req, res) => {
           },
           type: DataType.JSON
         }).catch((err) => {
-          console.log("product insert failed:" + err.message + ": product payload:\n %o",product);
+          console.log("product insert failed:" + err.message + ": \nproduct payload:\n %o",product);
           const productsResults = {};
         });
         
 
       });
+      console.log("completed the product import, please check above for any erros generated");
       res.send(products);
     } else {
       res.send({failed_message:"couldn't find the products to insert!"});
     }
   } catch(err) {
-    console.log(`error  in callingthe shopify client api: ${err.message}`);
+    console.log(`error  in calling the shopify client api: ${err.message}`);
     res.send({failed:true, error: err.message});
   }
 });
