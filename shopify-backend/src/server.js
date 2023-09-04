@@ -319,6 +319,8 @@ app.post('/api/shopify/products/import', async (req, res) => {
 
       products.forEach( async product => {
         console.log('will insert product: %o',product);
+
+        
         const productsResults = await client.post({
           path: `products`,
           data: {
@@ -326,10 +328,12 @@ app.post('/api/shopify/products/import', async (req, res) => {
           },
           type: DataType.JSON
         }).catch((err) => {
-          console.log("product insert failed:" + err.message);
+          console.log("product insert failed:" + err.message + ": product payload:\n %o",product);
           const productsResults = {};
         });
-     });
+        
+
+      });
       res.send(products);
     } else {
       res.send({failed_message:"couldn't find the products to insert!"});
