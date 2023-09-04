@@ -58,6 +58,8 @@ try{
   console.log(`errored in initialising the shopifyapi: ${err.message} `);
 };
 
+
+
 const app = express();
 
 function rawBody(req, res, next) {
@@ -223,10 +225,47 @@ app.get('/api/shopify/product/:productId', async (req, res) => {
       }
 });
 
-app.get('/api/shopify/products', async (req, res) => {
+app.get('/api/shopify/gql-products', async (req, res) => {
+  try{
+    const client = new shopifyApiClient.clients.Rest({
+      session,
+      apiVersion: ApiVersion.January23,
+    });
+    const products = await client.post({
+      path: `graphql.json`,
+      data: `query {
+          products(first: 10, reverse: true) {
+            edges {
+              node {
+                id
+                title
+                handle
+              }
+            }
+          }
+        }`
+      ,
+      type: DataType.GraphQL
+    }).catch((err) => {
+      console.log(`error  in calling the shopify client api: ${err.message}`);
+      res.send({error: err.message})
+    });
 
-      
-      // get a single product via its product id
+    if (products !== undefined){
+      if (products.body.errors !== undefined){
+        res.send({error: products.body.errors});
+      } else {
+        res.send({products: products.body.data.products});
+      }
+    }
+  }catch(err){
+    console.log(`error  in calling the shopify client api: ${err.message}`);
+    res.send({error: err.message});
+  }
+});
+
+app.get('/api/shopify/products', async (req, res) => {
+      // get a all products via GET RESTful API call
       try{
         const client = new shopifyApiClient.clients.Rest({
           session,
@@ -329,34 +368,33 @@ app.post('/api/shopify/products/import', async (req, res) => {
           type: DataType.JSON
         }).catch((err) => {
           console.log("product insert failed:" + err.message + ": \nproduct payload:\n %o",product);
-          const productsResults = {};
         });
 
         // insert was successful, now need to retreve the product id...
-        const newProductId = productsResults.body.product.id;
-        
-        if (product.category){
-//          console.log(`adding product into collection:${product.category}`);
-          const collectionUpdateResults = await client.put({
-            path: `custom_collections/${product.category}`,
-            data: {
-              custom_collection:{
-                id: product.category,
-                collects: [
-                  { 
-                    product_id: newProductId,
-                    position: 1
-                  }
-                ]
-              }
-            },
-            type: DataType.JSON
-          }).catch((err) => {
-            console.log("collection update failed:" + err.message + ": \ncollection id: "+product.category+", product id: " +newProductId);
-            const collectionUpdateResults = {};
-          });
+        if (productsResults !== undefined && product.category){
+          const newProductId = productsResults.body.product.id;
+          
+          if (product.category){
+  //          console.log(`adding product into collection:${product.category}`);
+            const collectionUpdateResults = await client.put({
+              path: `custom_collections/${product.category}`,
+              data: {
+                custom_collection:{
+                  id: product.category,
+                  collects: [
+                    { 
+                      product_id: newProductId,
+                      position: 1
+                    }
+                  ]
+                }
+              },
+              type: DataType.JSON
+            }).catch((err) => {
+              console.log("collection update failed:" + err.message + ": \ncollection id: "+product.category+", product id: " +newProductId);
+            });
+          }
         }
-
 //        console.log(`generated productId: ${productsResults.body.product.id}`);
         
 
@@ -364,7 +402,7 @@ app.post('/api/shopify/products/import', async (req, res) => {
       console.log("completed the product import, please check above for any erros generated");
       res.send(products);
     } else {
-      res.send({failed_message:"couldn't find the products to insert!"});
+      res.send({failed:true, error: "couldn't find the products to insert!"});
     }
   } catch(err) {
     console.log(`error  in calling the shopify client api: ${err.message}`);
