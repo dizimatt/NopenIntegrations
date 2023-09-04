@@ -334,25 +334,28 @@ app.post('/api/shopify/products/import', async (req, res) => {
 
         // insert was successful, now need to retreve the product id...
         const newProductId = productsResults.body.product.id;
-
-        const collectionUpdateResults = await client.put({
-          path: 'custom_collections/458941301022',
-          data: {
-            custom_collection:{
-              id: 458941301022,
-              collects: [
-                { 
-                  product_id: newProductId,
-                  position: 1
-                }
-              ]
-            }
-          },
-          type: DataType.JSON
-        }).catch((err) => {
-          console.log("collection update failed:" + err.message + ": \ncollection id: 458941301022, product id: " +newProductId);
-          const collectionUpdateResults = {};
-        });
+        
+        if (product.category){
+//          console.log(`adding product into collection:${product.category}`);
+          const collectionUpdateResults = await client.put({
+            path: `custom_collections/${product.category}`,
+            data: {
+              custom_collection:{
+                id: product.category,
+                collects: [
+                  { 
+                    product_id: newProductId,
+                    position: 1
+                  }
+                ]
+              }
+            },
+            type: DataType.JSON
+          }).catch((err) => {
+            console.log("collection update failed:" + err.message + ": \ncollection id: "+product.category+", product id: " +newProductId);
+            const collectionUpdateResults = {};
+          });
+        }
 
 //        console.log(`generated productId: ${productsResults.body.product.id}`);
         
