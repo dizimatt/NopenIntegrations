@@ -23,6 +23,7 @@
   },
   "scripts": {
     "prod": "pm2 start node_modules/react-scripts/scripts/start.js",
+    "ecs": "PORT=80 react-scripts start",
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
