@@ -1,0 +1,5 @@
+docker build -t nopenintegrations-ecs -f ./Dockerfile-ecs .
+docker run -t -i -p 80:80 --network apiint-node_NOPENINT nopenintegrations-ecs
+docker tag nopenintegrations-ecs:latest 588256912066.dkr.ecr.ap-southeast-2.amazonaws.com/nopenintegrations:latest
+docker login -u AWS -p $(aws ecr get-login-password --region ap-southeast-2) 588256912066.dkr.ecr.ap-southeast-2.amazonaws.com
+docker push 588256912066.dkr.ecr.ap-southeast-2.amazonaws.com/nopenintegrations:latest
