@@ -33,7 +33,7 @@ services:
     restart: always
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: D0z1n2ss
+      MONGO_INITDB_ROOT_PASSWORD: n0p3n1nt
     volumes:
       - mongoDataBase:/data/db 
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
