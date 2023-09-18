@@ -13,3 +13,4 @@ npm install
 rm install-wip
 touch install-complete
 npm run dev
+tail -f /dev/null
