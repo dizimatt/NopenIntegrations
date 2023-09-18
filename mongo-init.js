@@ -1,8 +1,8 @@
 use shopify;
 db.createUser(
     {
-        user: "openresourcing",
-        pwd: "D0z1n2ss",
+        user: "nopenintegrations",
+        pwd: "n0p3n1nt",
         roles: [
             {
                 role: "readWrite",
