@@ -1,3 +1,7 @@
 shopify-backend/custom-dist.txt
 shopify-backend/nohup.out
 nopenintegrations.pem
+nginx-conf/ssl/cert.pem
+nginx-conf/ssl/chain.pem
+nginx-conf/ssl/fullchain.pem
+nginx-conf/ssl/privkey.pem
