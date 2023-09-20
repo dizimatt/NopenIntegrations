@@ -9,4 +9,4 @@ COPY ./nginx-conf/nginx.conf /etc/nginx/nginx.conf
 # conly activate these for AWS ECS/ECR
 
 
-#CMD  /code/run-server.sh
+CMD  /code/run-server.sh
