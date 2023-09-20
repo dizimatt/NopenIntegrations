@@ -5,3 +5,4 @@ nginx-conf/ssl/cert.pem
 nginx-conf/ssl/chain.pem
 nginx-conf/ssl/fullchain.pem
 nginx-conf/ssl/privkey.pem
+shopify-backend/.env
