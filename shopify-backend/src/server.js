@@ -6,58 +6,92 @@ import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
 import csvToJson from 'csvtojson';
 
+
 dotenv.config();
 
-const session = {};
-const shopifyAPICreds = {};
-
-const fetchShopifySession = async () => {
-  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-  await client.connect();
-
-  const db = client.db('shopify');
-
-  console.log(`app_name::  ${process.env.APP_NAME}`);
-  const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
-
-  if (ShopifySession){
-    session.id  = ShopifySession.SHOPIFY_SESSION_ID; 
-    session.shop = ShopifySession.SHOPIFY_SESSION_SHOP;
-    session.state = ShopifySession.SHOPIFY_SESSION_STATE;
-    session.isOnline = false;
-    session.accessToken =  ShopifySession.SHOPIFY_ACCESS_TOKEN;
-    session.scope = ShopifySession.SHOPIFY_SESSION_SCOPE;
-  }
-  return true;
-};
-
-const fetchShopifyAPICreds = async () => {
-  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-  await client.connect();
-
-  const db = client.db('shopify');
-
-  const ShopifyApp = await db.collection('shopifyApp').findOne({APP_NAME: process.env.APP_NAME});
-
-  if (ShopifyApp){
-    shopifyAPICreds.apiKey = ShopifyApp.SHOPIFY_API_KEY; 
-    shopifyAPICreds.apiSecretKey = ShopifyApp.SHOPIFY_API_SECRET_KEY;
-    shopifyAPICreds.scopes = ShopifyApp.SHOPIFY_SCOPES.split(", ");
-    shopifyAPICreds.hostName = ShopifyApp.SHOPIFY_HOSTNAME;
-  }
-  return true;
-};
-
-await fetchShopifyAPICreds();
-await fetchShopifySession();
 
 var shopifyApiClient;
-try{
-  shopifyApiClient = shopifyApi(shopifyAPICreds);
-}catch(err){
-  console.log(`errored in initialising the shopifyapi: ${err.message} `);
+
+const fetchShopifySession = async (shopURL) => {
+  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+  await client.connect();
+
+  const db = client.db('shopify');
+
+  var param_SHOPIFY_SESSSION_SHOP = ""
+  if (shopURL){
+    param_SHOPIFY_SESSSION_SHOP = shopURL;
+  }
+  const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: param_SHOPIFY_SESSSION_SHOP});
+//  const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
+
+  if (ShopifySession){
+    return {
+      id: ShopifySession.SHOPIFY_SESSION_ID,
+      shop: ShopifySession.SHOPIFY_SESSION_SHOP,
+      state: ShopifySession.SHOPIFY_SESSION_STATE,
+      isOnline: false,
+      accessToken:  ShopifySession.SHOPIFY_ACCESS_TOKEN,
+      scope: ShopifySession.SHOPIFY_SESSION_SCOPE
+    };
+  } else {
+    return {};
+  }
+  console.log(`session: %o`,session);
+  return true;
 };
 
+const fetchShopifyAPICreds = async (shopURL) => {
+  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+  await client.connect();
+  const db = client.db('shopify');
+
+  //first fetch the shopify app name from the session table/collection (if not found, it's not installed - take it from the env vars)
+  const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: shopURL});
+  var app_name = "";
+  if (ShopifySession){
+    app_name = ShopifySession.APP_NAME;
+  } else {
+    app_name = process.env.APP_NAME;
+  }
+  const ShopifyApp = await db.collection('shopifyApp').findOne({APP_NAME: app_name});
+
+  if (ShopifyApp){
+    return {
+      apiKey: ShopifyApp.SHOPIFY_API_KEY,
+      apiSecretKey: ShopifyApp.SHOPIFY_API_SECRET_KEY,
+      scopes: ShopifyApp.SHOPIFY_SCOPES.split(", "),
+      hostName: ShopifyApp.SHOPIFY_HOSTNAME  
+    };
+  } else {
+    return {};
+  }
+};
+
+
+const initShopifyApiClient = async (shopURL) => {
+  const _shopifyAPICreds = await fetchShopifyAPICreds(shopURL);
+  try{
+    shopifyApiClient = shopifyApi(_shopifyAPICreds);
+  }catch(err){
+    console.log(`errored in initialising the shopifyapi: ${err.message} `);
+  };
+
+  if (shopURL !== undefined){
+    return await fetchShopifySession(shopURL);
+  } else {
+    return {};
+  }
+}
+
+const initShopifyApiClientForAuth = async (shopURL) => {
+  await fetchShopifyAPICreds();
+  try{
+    shopifyApiClient = shopifyApi(shopifyAPICreds);
+  }catch(err){
+    console.log(`errored in initialising the shopifyapi: ${err.message} `);
+  };
+}
 
 
 const app = express();
@@ -112,6 +146,7 @@ app.get('/',(req, res) => {
 // next two functions are the shopify app installation functions - add these endpoints into the shopify app config BEFORE installing
 app.get('/auth', async (req, res) => {
   console.log("auth...");
+    await initShopifyApiClient();
     // The library will automatically redirect the user
     await shopifyApiClient.auth.begin({
       shop: shopifyApiClient.utils.sanitizeShop(req.query.shop, true),
@@ -122,6 +157,8 @@ app.get('/auth', async (req, res) => {
     });
 });
 app.get('/auth/callback', async (req, res) => {
+    await initShopifyApiClient();
+
     // The library will automatically set the appropriate HTTP headers
     const callback = await shopifyApiClient.auth.callback({
         rawRequest: req,
@@ -194,7 +231,9 @@ app.get('/api/product/:productId', async (req, res) => {
 
 app.get('/api/shopify/product/:productId', async (req, res) => {
 
-  console.log(`latest session access token: ${session.accessToken}`);
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
 
   const { productId } = req.params;
 
@@ -202,7 +241,7 @@ app.get('/api/shopify/product/:productId', async (req, res) => {
       // get a single product via its product id
       try{
         const client = new shopifyApiClient.clients.Rest({
-          session,
+          session: shopify_session,
           apiVersion: ApiVersion.January23,
         });
         const product = await client.get({
@@ -226,9 +265,13 @@ app.get('/api/shopify/product/:productId', async (req, res) => {
 });
 
 app.get('/api/shopify/gql-products', async (req, res) => {
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
   try{
     const client = new shopifyApiClient.clients.Rest({
-      session,
+      session: shopify_session,
       apiVersion: ApiVersion.January23,
     });
     const products = await client.post({
@@ -265,10 +308,14 @@ app.get('/api/shopify/gql-products', async (req, res) => {
 });
 
 app.get('/api/shopify/products', async (req, res) => {
+    
+      const shopURL = req.query.shop;
       // get a all products via GET RESTful API call
+      const shopify_session = await initShopifyApiClient(shopURL);
       try{
-        const client = new shopifyApiClient.clients.Rest({
-          session,
+
+        const client = await new shopifyApiClient.clients.Rest({
+          session: shopify_session,
           apiVersion: ApiVersion.January23,
         });
         const products = await client.get({
@@ -284,17 +331,21 @@ app.get('/api/shopify/products', async (req, res) => {
   
         res.send(allProducts);
       }catch(err){
-        console.log(`error  in callingthe shopify client api: ${err.message}`);
+        console.log(`shopify/products: error  in callingthe shopify client api: ${err.message}`);
+        
         res.send({failed:true, error: err.message});
       }
 });
 
 app.get('/api/shopify/products/index', async (req, res) => {
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
 
   try{
     // get a single product via its product id
     const client = new shopifyApiClient.clients.Rest({
-      session,
+      session: shopify_session,
       apiVersion: ApiVersion.January23,
     });
 
@@ -333,10 +384,13 @@ app.get('/api/shopify/products/index', async (req, res) => {
 });
 
 app.post('/api/shopify/products/import', async (req, res) => {
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
   try{
     // get a single product via its product id
     const client = new shopifyApiClient.clients.Rest({
-      session,
+      session: shopify_session,
       apiVersion: ApiVersion.January23,
     });
 
