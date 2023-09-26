@@ -14,56 +14,67 @@ var shopifyApiClient;
 
 const fetchShopifySession = async (shopURL) => {
   const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-  await client.connect();
+  try{
+    await client.connect();
 
-  const db = client.db('shopify');
+    const db = client.db('shopify');
 
-  var param_SHOPIFY_SESSSION_SHOP = ""
-  if (shopURL){
-    param_SHOPIFY_SESSSION_SHOP = shopURL;
-  }
-  const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: param_SHOPIFY_SESSSION_SHOP});
-//  const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
+    var param_SHOPIFY_SESSSION_SHOP = ""
+    if (shopURL){
+      param_SHOPIFY_SESSSION_SHOP = shopURL;
+    }
+    const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: param_SHOPIFY_SESSSION_SHOP});
+  //  const ShopifySession = await db.collection('shopifySession').findOne({APP_NAME: process.env.APP_NAME});
 
-  if (ShopifySession){
-    return {
-      id: ShopifySession.SHOPIFY_SESSION_ID,
-      shop: ShopifySession.SHOPIFY_SESSION_SHOP,
-      state: ShopifySession.SHOPIFY_SESSION_STATE,
-      isOnline: false,
-      accessToken:  ShopifySession.SHOPIFY_ACCESS_TOKEN,
-      scope: ShopifySession.SHOPIFY_SESSION_SCOPE
-    };
-  } else {
+    if (ShopifySession){
+      return {
+        id: ShopifySession.SHOPIFY_SESSION_ID,
+        shop: ShopifySession.SHOPIFY_SESSION_SHOP,
+        state: ShopifySession.SHOPIFY_SESSION_STATE,
+        isOnline: false,
+        accessToken:  ShopifySession.SHOPIFY_ACCESS_TOKEN,
+        scope: ShopifySession.SHOPIFY_SESSION_SCOPE
+      };
+    } else {
+      return {};
+    }
+  } catch (err) {
+    console.log("failed to connect to mongodb!");
     return {};
   }
+
   console.log(`session: %o`,session);
   return true;
 };
 
 const fetchShopifyAPICreds = async (shopURL) => {
   const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-  await client.connect();
-  const db = client.db('shopify');
+  try{
+    await client.connect();
+    const db = client.db('shopify');
 
-  //first fetch the shopify app name from the session table/collection (if not found, it's not installed - take it from the env vars)
-  const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: shopURL});
-  var app_name = "";
-  if (ShopifySession){
-    app_name = ShopifySession.APP_NAME;
-  } else {
-    app_name = process.env.APP_NAME;
-  }
-  const ShopifyApp = await db.collection('shopifyApp').findOne({APP_NAME: app_name});
+    //first fetch the shopify app name from the session table/collection (if not found, it's not installed - take it from the env vars)
+    const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: shopURL});
+    var app_name = "";
+    if (ShopifySession){
+      app_name = ShopifySession.APP_NAME;
+    } else {
+      app_name = process.env.APP_NAME;
+    }
+    const ShopifyApp = await db.collection('shopifyApp').findOne({APP_NAME: app_name});
 
-  if (ShopifyApp){
-    return {
-      apiKey: ShopifyApp.SHOPIFY_API_KEY,
-      apiSecretKey: ShopifyApp.SHOPIFY_API_SECRET_KEY,
-      scopes: ShopifyApp.SHOPIFY_SCOPES.split(", "),
-      hostName: ShopifyApp.SHOPIFY_HOSTNAME  
-    };
-  } else {
+    if (ShopifyApp){
+      return {
+        apiKey: ShopifyApp.SHOPIFY_API_KEY,
+        apiSecretKey: ShopifyApp.SHOPIFY_API_SECRET_KEY,
+        scopes: ShopifyApp.SHOPIFY_SCOPES.split(", "),
+        hostName: ShopifyApp.SHOPIFY_HOSTNAME  
+      };
+    } else {
+      return {};
+    }
+  } catch (err) {
+    console.log("failed to connect to mongodb! err: %o",err);
     return {};
   }
 };
@@ -171,24 +182,30 @@ app.get('/auth/callback', async (req, res) => {
         authCallback: callback
     });
 
-    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-    await client.connect();
-  
-    const db = client.db('shopify');
 
-    const shopifySessionCursor = db.collection('shopifySession').insertOne(
-      {
-        APP_NAME: process.env.APP_NAME,
-        SHOPIFY_SESSION_ID: callback.session.id,
-        SHOPIFY_SESSION_SHOP: callback.session.shop,
-        SHOPIFY_SESSION_STATE: callback.session.state,
-        SHOPIFY_ACCESS_TOKEN: callback.session.accessToken,
-        SHOPIFY_SESSION_SCOPE: callback.session.scope
-      }
-    )
-    .catch((err) => {
+    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+    try{
+      await client.connect();
+    
+      const db = client.db('shopify');
+
+      const shopifySessionCursor = db.collection('shopifySession').insertOne(
+        {
+          APP_NAME: process.env.APP_NAME,
+          SHOPIFY_SESSION_ID: callback.session.id,
+          SHOPIFY_SESSION_SHOP: callback.session.shop,
+          SHOPIFY_SESSION_STATE: callback.session.state,
+          SHOPIFY_ACCESS_TOKEN: callback.session.accessToken,
+          SHOPIFY_SESSION_SCOPE: callback.session.scope
+        }
+      )
+      .catch((err) => {
+        res.send({mongoerror: err});
+      });
+    } catch (err) {
+      console.log("failed to connect to mongodb! err: %o",err);
       res.send({mongoerror: err});
-    });
+    }  
 
 
     // You can now use callback.session to make API requests
@@ -200,14 +217,18 @@ app.get('/auth/callback', async (req, res) => {
 app.get('/api/products', async (req, res) => {
 
   const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-  await client.connect();
-
-  const db = client.db('shopify');
-
-  const productsCursor = await db.collection('products').find({});
   const products = [];
-  for await (const product of productsCursor){
-      products.push(product);
+  try{
+    await client.connect();
+
+    const db = client.db('shopify');
+
+    const productsCursor = await db.collection('products').find({});
+    for await (const product of productsCursor){
+        products.push(product);
+    }
+  } catch (err) {
+    console.log("failed to connect to mongodb! err: %o",err);
   }
 
   res.json({products});
@@ -217,15 +238,20 @@ app.get('/api/product/:productId', async (req, res) => {
     const { productId } = req.params;
 
     const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-    await client.connect();
+    try{
+      await client.connect();
 
-    const db = client.db('shopify');
+      const db = client.db('shopify');
 
-    const product = await db.collection('products').findOne({id: parseInt(productId)});
-    if (product){
-        res.json({product});
-    } else {
-        res.sendStatus(404);
+      const product = await db.collection('products').findOne({id: parseInt(productId)});
+      if (product){
+          res.json({product});
+      } else {
+          res.sendStatus(404);
+      }
+    } catch (err) {
+      res.sendStatus(404);
+      console.log("failed to connect to mongodb!");
     }
 });
 
