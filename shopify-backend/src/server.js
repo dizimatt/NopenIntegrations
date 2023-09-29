@@ -11,13 +11,19 @@ dotenv.config();
 
 
 var shopifyApiClient;
+const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
+try{
+  await client.connect();
+} catch (err) {
+  console.log("failed to connect to mongodb!");
+}
 
 const fetchShopifySession = async (shopURL) => {
-  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+//  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
   try{
-    await client.connect();
+//    await client.connect();
 
-    const db = client.db('shopify');
+    const db = dbClient.db('shopify');
 
     var param_SHOPIFY_SESSSION_SHOP = ""
     if (shopURL){
@@ -48,10 +54,10 @@ const fetchShopifySession = async (shopURL) => {
 };
 
 const fetchShopifyAPICreds = async (shopURL) => {
-  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+//  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
   try{
-    await client.connect();
-    const db = client.db('shopify');
+//    await client.connect();
+    const db = dbClient.db('shopify');
 
     //first fetch the shopify app name from the session table/collection (if not found, it's not installed - take it from the env vars)
     const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: shopURL});
@@ -183,11 +189,11 @@ app.get('/auth/callback', async (req, res) => {
     });
 
 
-    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+//    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
     try{
-      await client.connect();
+//      await client.connect();
     
-      const db = client.db('shopify');
+      const db = dbClient.db('shopify');
 
       const shopifySessionCursor = db.collection('shopifySession').insertOne(
         {
@@ -216,12 +222,12 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get('/api/products', async (req, res) => {
 
-  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+//  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
   const products = [];
   try{
-    await client.connect();
+//    await client.connect();
 
-    const db = client.db('shopify');
+    const db = dbClient.db('shopify');
 
     const productsCursor = await db.collection('products').find({});
     for await (const product of productsCursor){
@@ -237,11 +243,11 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/product/:productId', async (req, res) => {
     const { productId } = req.params;
 
-    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+//    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
     try{
-      await client.connect();
+//      await client.connect();
 
-      const db = client.db('shopify');
+      const db = dbClient.db('shopify');
 
       const product = await db.collection('products').findOne({id: parseInt(productId)});
       if (product){
@@ -384,10 +390,10 @@ app.get('/api/shopify/products/index', async (req, res) => {
 
     const finalProducts = [];
     if (productsResults){
-      const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
-      await mongoClient.connect();
+//      const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
+//      await mongoClient.connect();
     
-      const db = mongoClient.db('shopify');
+      const db = dbClient.db('shopify');
 
       db.collection('products').deleteMany({});
 
