@@ -1,6 +1,6 @@
 import '@shopify/shopify-api/adapters/node';
 import shopify, {shopifyApi, LATEST_API_VERSION, ApiVersion, DataType} from '@shopify/shopify-api';
-import express, { json } from 'express';
+import express, { json, query } from 'express';
 import {MongoClient} from 'mongodb';
 import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
@@ -221,6 +221,7 @@ app.get('/auth/callback', async (req, res) => {
 // end of shopify installations functions
 
 app.get('/api/products', async (req, res) => {
+  const shopURL = req.query.shop;
 
 //  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
   const products = [];
@@ -229,7 +230,11 @@ app.get('/api/products', async (req, res) => {
 
     const db = dbClient.db('shopify');
 
-    const productsCursor = await db.collection('products').find({});
+    var prodQuery = {}
+    if(shopURL){
+      prodQuery = {shopURL:shopURL};
+    }
+    const productsCursor = await db.collection('products').find(prodQuery);
     for await (const product of productsCursor){
         products.push(product);
     }
@@ -396,13 +401,13 @@ app.get('/api/shopify/products/index', async (req, res) => {
     
       const db = dbClient.db('shopify');
 
-      db.collection('products').deleteMany({});
+      db.collection('products').deleteMany({shopURL: shopURL});
 
       productsResults.body.products.forEach(product => { 
         finalProducts.push(product);
 
         //now write the same product back to mogodb
-        product.shopURL = shopURL;
+        Object.assign(product, {shopURL: shopURL});
         const productsCursor = db.collection('products').insertOne(product)
         .catch((err) => {
           res.send({mongoerror: err});
