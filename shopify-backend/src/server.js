@@ -13,9 +13,9 @@ dotenv.config();
 var shopifyApiClient;
 const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
 try{
-  await client.connect();
+  await dbClient.connect();
 } catch (err) {
-  console.log("failed to connect to mongodb!");
+  console.log("failed to connect to mongodb!, %o", err);
 }
 
 const fetchShopifySession = async (shopURL) => {
@@ -45,7 +45,7 @@ const fetchShopifySession = async (shopURL) => {
       return {};
     }
   } catch (err) {
-    console.log("failed to connect to mongodb!");
+    console.log("failed to query session from mongodb!");
     return {};
   }
 
@@ -80,7 +80,7 @@ const fetchShopifyAPICreds = async (shopURL) => {
       return {};
     }
   } catch (err) {
-    console.log("failed to connect to mongodb! err: %o",err);
+    console.log("failed to query shop-session from mongodb! err: %o",err);
     return {};
   }
 };
@@ -209,7 +209,7 @@ app.get('/auth/callback', async (req, res) => {
         res.send({mongoerror: err});
       });
     } catch (err) {
-      console.log("failed to connect to mongodb! err: %o",err);
+      console.log("auth:callback: failed to insert session into mongodb! err: %o",err);
       res.send({mongoerror: err});
     }  
 
@@ -234,9 +234,10 @@ app.get('/api/products', async (req, res) => {
         products.push(product);
     }
   } catch (err) {
-    console.log("failed to connect to mongodb! err: %o",err);
+    console.log("failed to collect all products from mongodb! err: %o",err);
   }
-
+//  res.setHeader('content-type', 'Application/Liquid');
+  res.set('content-type','Application/Liquid');
   res.json({products});
 });
 
@@ -257,7 +258,7 @@ app.get('/api/product/:productId', async (req, res) => {
       }
     } catch (err) {
       res.sendStatus(404);
-      console.log("failed to connect to mongodb!");
+      console.log("failed to fetch product from mongodb!");
     }
 });
 

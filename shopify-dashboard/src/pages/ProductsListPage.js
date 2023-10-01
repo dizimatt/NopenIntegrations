@@ -12,7 +12,9 @@ const ProductsListPage = () => {
     const time = DateNow.toString();
     const digest = generate("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", "sha256", time, "GET", `/api/products`, {}).digest("hex");
 
-    const hmac = `HMAC ${time}:${digest}`;
+//    const hmac = `HMAC ${time}:${digest}`;
+
+    const [hmac, setHmac] = useState (`HMAC ${time}:${digest}`);
 
     useEffect(() => {
         const config = {
