@@ -237,7 +237,7 @@ app.get('/api/products', async (req, res) => {
     console.log("failed to collect all products from mongodb! err: %o",err);
   }
 //  res.setHeader('content-type', 'Application/Liquid');
-  res.set('content-type','Application/Liquid');
+//  res.set('content-type','Application/Liquid');
   res.json({products});
 });
 
@@ -402,6 +402,7 @@ app.get('/api/shopify/products/index', async (req, res) => {
         finalProducts.push(product);
 
         //now write the same product back to mogodb
+        product.shopURL = shopURL;
         const productsCursor = db.collection('products').insertOne(product)
         .catch((err) => {
           res.send({mongoerror: err});
