@@ -11,6 +11,7 @@ dotenv.config();
 
 
 var shopifyApiClient;
+
 const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
 try{
   await dbClient.connect();
@@ -94,20 +95,12 @@ const initShopifyApiClient = async (shopURL) => {
     console.log(`errored in initialising the shopifyapi: ${err.message} `);
   };
 
+
   if (shopURL !== undefined){
     return await fetchShopifySession(shopURL);
   } else {
     return {};
   }
-}
-
-const initShopifyApiClientForAuth = async (shopURL) => {
-  await fetchShopifyAPICreds();
-  try{
-    shopifyApiClient = shopifyApi(shopifyAPICreds);
-  }catch(err){
-    console.log(`errored in initialising the shopifyapi: ${err.message} `);
-  };
 }
 
 
@@ -518,7 +511,7 @@ app.get('/api/shopify/webhook/subscribe', async (req, res) => {
     path: `webhooks`,
     data: {
       "webhook":{
-        "address":"https://0967-111-65-62-40.ngrok-free.app/api/shopify/webhook-triggers/products/update",
+        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/products/update`,
         "topic":"products/update",
         "format":"json"
       }
@@ -535,7 +528,6 @@ app.get('/api/shopify/webhook/unsubscribe', async (req, res) => {
   // 1150082220216
   const shopURL = req.query.shop;
   const webhook_id = req.query.id;
-  console.log("will remove webhook id: %o",webhook_id);
   // get a all products via GET RESTful API call
   const shopify_session = await initShopifyApiClient(shopURL);
 
