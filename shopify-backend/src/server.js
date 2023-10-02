@@ -503,6 +503,92 @@ app.post('/api/shopify/products/import', async (req, res) => {
   }
 });
 
+app.get('/api/shopify/webhook/subscribe', async (req, res) => {
+//  1150082351288
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const productsResults = await client.post({
+    path: `webhooks`,
+    data: {
+      "webhook":{
+        "address":"https://0967-111-65-62-40.ngrok-free.app/api/shopify/webhook-triggers/products/update",
+        "topic":"products/update",
+        "format":"json"
+      }
+    },
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook subscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_subscribe_results:productsResults});
+});
+
+app.get('/api/shopify/webhook/unsubscribe', async (req, res) => {
+  // 1150082220216
+  const shopURL = req.query.shop;
+  const webhook_id = req.query.id;
+  console.log("will remove webhook id: %o",webhook_id);
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const unsubscribeResults = await client.delete({
+    path: `webhooks/${webhook_id}`,
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook unsubscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_unsubscribe_results:unsubscribeResults});
+});
+app.get('/api/shopify/webhooks', async (req, res) => {
+  // 1150082220216
+  const shopURL = req.query.shop;
+  const webhook_id = req.query.id;
+  console.log("will remove webhook id: %o",webhook_id);
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const webhookList = await client.get({
+    path: `webhooks`,
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook list failed: %o" + err.message);
+  });
+
+  res.send({webhooks:webhookList});
+});
+
+app.post('/api/shopify/webhook-triggers/products/update', async (req, res) => {
+  const body = req.body;
+
+//  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+//  const shopify_session = await initShopifyApiClient(shopURL);
+  console.log("trigger: products/update - req: %o", req.body);
+  res.send({
+    status:"product updated!",
+    request: req.body
+  });
+});
+
 app.listen(8000, () => {
     console.log('Server is listening on port 8000');
 });
