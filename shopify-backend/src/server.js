@@ -4,14 +4,15 @@ import express, { json, query } from 'express';
 import {MongoClient} from 'mongodb';
 import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
-import csvToJson from 'csvtojson';
+import {apiProducts,apiProduct} from './routes/main.js';
+import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, apiShopifyProduct} from './routes/shopify.js';
 
 dotenv.config();
 
 
 var shopifyApiClient;
-
 const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
+
 try{
   await dbClient.connect();
 } catch (err) {
@@ -151,7 +152,6 @@ app.use((error, req, res, next) => {
 app.get('/',(req, res) => {
     res.send('<html><body><h1>you\'ve reached the api endpoints - please contact support for api documentation</h1></body></html>');
 });
-
 // next two functions are the shopify app installation functions - add these endpoints into the shopify app config BEFORE installing
 app.get('/auth', async (req, res) => {
   console.log("auth...");
@@ -213,86 +213,15 @@ app.get('/auth/callback', async (req, res) => {
 // end of shopify installations functions
 
 app.get('/api/products', async (req, res) => {
-  const shopURL = req.query.shop;
-
-  //  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-    const products = [];
-    try{
-  //    await client.connect();
-  
-      const db = dbClient.db('shopify');
-  
-      var prodQuery = {}
-      if(shopURL){
-        prodQuery = {shopURL:shopURL};
-      }
-      const productsCursor = await db.collection('products').find(prodQuery);
-      for await (const product of productsCursor){
-          products.push(product);
-      }
-    } catch (err) {
-      console.log("failed to collect all products from mongodb! err: %o",err);
-    }
-  //  res.setHeader('content-type', 'Application/Liquid');
-  //  res.set('content-type','Application/Liquid');
-    res.json({products});
-  
+  apiProducts(req,res,dbClient);
 });
 
 app.get('/api/product/:productId', async (req, res) => {
-    const { productId } = req.params;
-
-//    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-    try{
-//      await client.connect();
-
-      const db = dbClient.db('shopify');
-
-      const product = await db.collection('products').findOne({id: parseInt(productId)});
-      if (product){
-          res.json({product});
-      } else {
-          res.sendStatus(404);
-      }
-    } catch (err) {
-      res.sendStatus(404);
-      console.log("failed to fetch product from mongodb!");
-    }
+  apiProduct(req,res,dbClient);
 });
 
 app.get('/api/shopify/product/:productId', async (req, res) => {
-
-  const shopURL = req.query.shop;
-  // get a all products via GET RESTful API call
-  const shopify_session = await initShopifyApiClient(shopURL);
-
-  const { productId } = req.params;
-
-      
-      // get a single product via its product id
-      try{
-        const client = new shopifyApiClient.clients.Rest({
-          session: shopify_session,
-          apiVersion: ApiVersion.January23,
-        });
-        const product = await client.get({
-          path: `products/${productId}.json`,
-          query: {id:1, title: "title"}
-        }).catch((err) => {
-          const product = {};
-        });
-
-        const newProduct = {product:{}};
-        if (product !== undefined){
-          newProduct.product = product.body.product;
-        }
-    //      const product = await shopify.rest.Product.find({session, id: '7504536535062'});
-  
-        res.send(newProduct);
-      }catch(err){
-        console.log(`error  in callingthe shopify client api: ${err.message}`);
-        res.send({failed:true, error: err.message});
-      }
+  apiShopifyProduct(req, res, dbClient);
 });
 
 app.get('/api/shopify/gql-products', async (req, res) => {
@@ -339,161 +268,15 @@ app.get('/api/shopify/gql-products', async (req, res) => {
 });
 
 app.get('/api/shopify/products', async (req, res) => {
-    
-      const shopURL = req.query.shop;
-      // get a all products via GET RESTful API call
-      const shopify_session = await initShopifyApiClient(shopURL);
-      try{
-
-        const client = await new shopifyApiClient.clients.Rest({
-          session: shopify_session,
-          apiVersion: ApiVersion.January23,
-        });
-        const products = await client.get({
-          path: `products.json`
-        }).catch((err) => {
-            const products = {};
-        });
-
-        const allProducts = {products:[]};
-        if (products !== undefined){
-          allProducts.products = products.body.products;
-        }
-  
-        res.send(allProducts);
-      }catch(err){
-        console.log(`shopify/products: error  in callingthe shopify client api: ${err.message}`);
-        
-        res.send({failed:true, error: err.message});
-      }
+    apiShopifyProducts(req,res,dbClient);
 });
 
 app.get('/api/shopify/products/index', async (req, res) => {
-  const shopURL = req.query.shop;
-  // get a all products via GET RESTful API call
-  const shopify_session = await initShopifyApiClient(shopURL);
-
-  try{
-    // get a single product via its product id
-    const client = new shopifyApiClient.clients.Rest({
-      session: shopify_session,
-      apiVersion: ApiVersion.January23,
-    });
-
-
-    const productsResults = await client.get({
-      path: `products`
-    }).catch((err) => {
-      const productsResults = {};
-    });
-
-    const finalProducts = [];
-    if (productsResults){
-//      const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
-//      await mongoClient.connect();
-    
-      const db = dbClient.db('shopify');
-
-      db.collection('products').deleteMany({shopURL: shopURL});
-
-      productsResults.body.products.forEach(product => { 
-        finalProducts.push(product);
-
-        //now write the same product back to mogodb
-        Object.assign(product, {shopURL: shopURL});
-        const productsCursor = db.collection('products').insertOne(product)
-        .catch((err) => {
-          res.send({mongoerror: err});
-        });
-    
-      });
-    }
-    res.send(finalProducts);
-  } catch(err) {
-    console.log(`error  in callingthe shopify client api: ${err.message}`);
-    res.send({failed:true, error: err.message});
-  }
+  apiShopifyProductsIndex(req,res,dbClient);
 });
 
 app.post('/api/shopify/products/import', async (req, res) => {
-  const shopURL = req.query.shop;
-  // get a all products via GET RESTful API call
-  const shopify_session = await initShopifyApiClient(shopURL);
-  try{
-    // get a single product via its product id
-    const client = new shopifyApiClient.clients.Rest({
-      session: shopify_session,
-      apiVersion: ApiVersion.January23,
-    });
-
-    //  console.log(`json returned: ${jsonString}`);
-    // res.send({returned: json});
-  
-    const body = req.body;
-    /*
-    console.log("request body: %o",req.body);
-    console.log(req.is('text/*'));
-    console.log(req.is('json'));
-    console.log('RB: ' + req.rawBody);
-    console.log('B: ' + JSON.stringify(req.body));
-*/
-    if (req.rawBody !== undefined){
-
-      const products = await csvToJson().fromString(req.rawBody);
-//      console.log(`products:%o`,products);
-
-      products.forEach( async product => {
-//        console.log('will insert product: %o',product);
-
-        
-        const productsResults = await client.post({
-          path: `products`,
-          data: {
-            product: product
-          },
-          type: DataType.JSON
-        }).catch((err) => {
-          console.log("product insert failed:" + err.message + ": \nproduct payload:\n %o",product);
-        });
-
-        // insert was successful, now need to retreve the product id...
-        if (productsResults !== undefined && product.category){
-          const newProductId = productsResults.body.product.id;
-          
-          if (product.category){
-  //          console.log(`adding product into collection:${product.category}`);
-            const collectionUpdateResults = await client.put({
-              path: `custom_collections/${product.category}`,
-              data: {
-                custom_collection:{
-                  id: product.category,
-                  collects: [
-                    { 
-                      product_id: newProductId,
-                      position: 1
-                    }
-                  ]
-                }
-              },
-              type: DataType.JSON
-            }).catch((err) => {
-              console.log("collection update failed:" + err.message + ": \ncollection id: "+product.category+", product id: " +newProductId);
-            });
-          }
-        }
-//        console.log(`generated productId: ${productsResults.body.product.id}`);
-        
-
-      });
-      console.log("completed the product import, please check above for any erros generated");
-      res.send(products);
-    } else {
-      res.send({failed:true, error: "couldn't find the products to insert!"});
-    }
-  } catch(err) {
-    console.log(`error  in calling the shopify client api: ${err.message}`);
-    res.send({failed:true, error: err.message});
-  }
+  apiShopifyProductsImport(req,res,dbClient);
 });
 
 app.get('/api/shopify/webhook/subscribe', async (req, res) => {
