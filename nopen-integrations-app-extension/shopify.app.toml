@@ -1,0 +1,32 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+name = "NOpenIntegrations-OR"
+client_id = "7e9df0025c6a0219eb3f8822e03728e6"
+application_url = "https://c3c3-202-172-56-60.ngrok-free.app"
+embedded = true
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_products"
+use_legacy_install_flow = true
+
+[auth]
+redirect_urls = [
+  "https://c3c3-202-172-56-60.ngrok-free.app//auth",
+  "https://c3c3-202-172-56-60.ngrok-free.app//auth/callback"
+]
+
+[webhooks]
+api_version = "2023-07"
+
+[app_proxy]
+url = "https://70e3-202-172-56-60.ngrok-free.app/"
+subpath = "nopint-or"
+prefix = "apps"
+
+[pos]
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false
+dev_store_url = "openresourcing.myshopify.com"

@@ -6,7 +6,6 @@ import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
 import csvToJson from 'csvtojson';
 
-
 dotenv.config();
 
 
@@ -216,27 +215,28 @@ app.get('/auth/callback', async (req, res) => {
 app.get('/api/products', async (req, res) => {
   const shopURL = req.query.shop;
 
-//  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
-  const products = [];
-  try{
-//    await client.connect();
-
-    const db = dbClient.db('shopify');
-
-    var prodQuery = {}
-    if(shopURL){
-      prodQuery = {shopURL:shopURL};
+  //  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+    const products = [];
+    try{
+  //    await client.connect();
+  
+      const db = dbClient.db('shopify');
+  
+      var prodQuery = {}
+      if(shopURL){
+        prodQuery = {shopURL:shopURL};
+      }
+      const productsCursor = await db.collection('products').find(prodQuery);
+      for await (const product of productsCursor){
+          products.push(product);
+      }
+    } catch (err) {
+      console.log("failed to collect all products from mongodb! err: %o",err);
     }
-    const productsCursor = await db.collection('products').find(prodQuery);
-    for await (const product of productsCursor){
-        products.push(product);
-    }
-  } catch (err) {
-    console.log("failed to collect all products from mongodb! err: %o",err);
-  }
-//  res.setHeader('content-type', 'Application/Liquid');
-//  res.set('content-type','Application/Liquid');
-  res.json({products});
+  //  res.setHeader('content-type', 'Application/Liquid');
+  //  res.set('content-type','Application/Liquid');
+    res.json({products});
+  
 });
 
 app.get('/api/product/:productId', async (req, res) => {
