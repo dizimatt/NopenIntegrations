@@ -39,7 +39,7 @@ export async function apiProduct(req, res, dbClient) {
 
       const db = dbClient.db('shopify');
 
-      const product = await db.collection('products').findOne({id: parseInt(productId),shopURL:shopURL});
+      const product = await db.collection('products').findOne({id: parseInt(productId)}); //,shopURL:shopURL});
       if (product){
           res.json({product});
       } else {
