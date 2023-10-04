@@ -4,6 +4,68 @@ import csvToJson from 'csvtojson';
 var shopifyApiClient;
 var dbClient;
 
+export async function shopifyAuthCallback(req, res, _dbClient) {
+  dbClient = _dbClient;
+  await initShopifyApiClient();
+
+  // The library will automatically set the appropriate HTTP headers
+  const callback = await shopifyApiClient.auth.callback({
+      rawRequest: req,
+      rawResponse: res,
+  });
+
+
+  console.log("sending authcallback: %o",callback);
+  res.send({
+      authCallback: callback
+  });
+
+
+//    const client = new MongoClient(process.env.MONGO_CLIENT_URL);
+  try{
+//      await client.connect();
+  
+    const db = dbClient.db('shopify');
+
+    const shopifySessionCursor = db.collection('shopifySession').insertOne(
+      {
+        APP_NAME: process.env.APP_NAME,
+        SHOPIFY_SESSION_ID: callback.session.id,
+        SHOPIFY_SESSION_SHOP: callback.session.shop,
+        SHOPIFY_SESSION_STATE: callback.session.state,
+        SHOPIFY_ACCESS_TOKEN: callback.session.accessToken,
+        SHOPIFY_SESSION_SCOPE: callback.session.scope
+      }
+    )
+    .catch((err) => {
+      res.send({mongoerror: err});
+    });
+  } catch (err) {
+    console.log("auth:callback: failed to insert session into mongodb! err: %o",err);
+    res.send({mongoerror: err});
+  }  
+
+
+  // You can now use callback.session to make API requests
+
+//    res.redirect('/my-apps-entry-page');
+};
+
+export async function shopifyAuth(req, res, _dbClient) {
+  dbClient = _dbClient;
+
+  console.log("auth...");
+    await initShopifyApiClient();
+    // The library will automatically redirect the user
+    await shopifyApiClient.auth.begin({
+      shop: shopifyApiClient.utils.sanitizeShop(req.query.shop, true),
+      callbackPath: '/auth/callback',
+      isOnline: false,
+      rawRequest: req,
+      rawResponse: res,
+    });
+};
+
 const fetchShopifySession = async (shopURL) => {
     console.log("shopurl: "+ shopURL);
     //  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
@@ -276,4 +338,136 @@ export async function apiShopifyProduct(req, res, _dbClient) {
           console.log(`error  in callingthe shopify client api: ${err.message}`);
           res.send({failed:true, error: err.message});
         }
-  };
+};
+export async function apiShopifyWebhookSubscribe(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+
+
+  const productsResults = await client.post({
+    path: `webhooks`,
+    data: {
+      "webhook":{
+        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/products/update`,
+        "topic":"products/update",
+        "format":"json"
+      }
+    },
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook subscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_subscribe_results:productsResults});
+
+};
+export async function apiShopifyWebhookUnsubscribe(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  const webhook_id = req.query.id;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const unsubscribeResults = await client.delete({
+    path: `webhooks/${webhook_id}`,
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook unsubscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_unsubscribe_results:unsubscribeResults});
+};
+export async function apiShopifyWebhooks(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  const webhook_id = req.query.id;
+  console.log("will remove webhook id: %o",webhook_id);
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const webhookList = await client.get({
+    path: `webhooks`,
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook list failed: %o" + err.message);
+  });
+
+  res.send({webhooks:webhookList});
+
+};
+export async function apiShopifyWebhookTriggersProductsUpdate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const body = req.body;
+
+//  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+//  const shopify_session = await initShopifyApiClient(shopURL);
+  console.log("trigger: products/update - req: %o", req.body);
+  res.send({
+    status:"product updated!",
+    request: req.body
+  });
+}
+export async function apiShopifyGqlProducts(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  try{
+    const client = new shopifyApiClient.clients.Rest({
+      session: shopify_session,
+      apiVersion: ApiVersion.January23,
+    });
+    const products = await client.post({
+      path: `graphql.json`,
+      data: `query {
+          products(first: 10, reverse: true) {
+            edges {
+              node {
+                id
+                title
+                handle
+              }
+            }
+          }
+        }`
+      ,
+      type: DataType.GraphQL
+    }).catch((err) => {
+      console.log(`error  in calling the shopify client api: ${err.message}`);
+      res.send({error: err.message})
+    });
+
+    if (products !== undefined){
+      if (products.body.errors !== undefined){
+        res.send({error: products.body.errors});
+      } else {
+        res.send({products: products.body.data.products});
+      }
+    }
+  }catch(err){
+    console.log(`error  in calling the shopify client api: ${err.message}`);
+    res.send({error: err.message});
+  }
+
+}
