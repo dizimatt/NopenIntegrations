@@ -7,7 +7,8 @@ import dotenv from 'dotenv';
 import {apiProducts,apiProduct} from './routes/main.js';
 import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, apiShopifyProduct, apiShopifyWebhookSubscribe, 
   apiShopifyWebhookUnsubscribe, apiShopifyWebhooks, apiShopifyWebhookTriggersProductsUpdate, apiShopifyGqlProducts,
-  shopifyAuth,shopifyAuthCallback} from './routes/shopify.js';
+  shopifyAuth,shopifyAuthCallback, apiShopifyWebhookSubscribeCartsUpdate, apiShopifyWebhookTriggersCartsUpdate} 
+  from './routes/shopify.js';
 
 dotenv.config();
 const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
@@ -108,6 +109,10 @@ app.get('/api/shopify/webhook/subscribe', async (req, res) => {
   apiShopifyWebhookSubscribe(req,res,dbClient);
 //  1150082351288
 });
+app.get('/api/shopify/webhook/subscribe/carts/update', async (req, res) => {
+  apiShopifyWebhookSubscribeCartsUpdate(req,res,dbClient);
+//  1150082351288
+});
 
 app.get('/api/shopify/webhook/unsubscribe', async (req, res) => {
   apiShopifyWebhookUnsubscribe(req,res,dbClient);
@@ -122,6 +127,9 @@ app.get('/api/shopify/webhooks', async (req, res) => {
 
 app.post('/api/shopify/webhook-triggers/products/update', async (req, res) => {
   apiShopifyWebhookTriggersProductsUpdate(req, res,dbClient);
+});
+app.post('/api/shopify/webhook-triggers/carts/update', async (req, res) => {
+  apiShopifyWebhookTriggersCartsUpdate(req, res,dbClient);
 });
 
 app.listen(8000, () => {

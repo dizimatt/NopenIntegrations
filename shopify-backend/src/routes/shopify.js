@@ -471,3 +471,47 @@ export async function apiShopifyGqlProducts(req, res, _dbClient) {
   }
 
 }
+export async function apiShopifyWebhookSubscribeCartsUpdate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+
+
+  const productsResults = await client.post({
+    path: `webhooks`,
+    data: {
+      "webhook":{
+        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/carts/update`,
+        "topic":"carts/update",
+        "format":"json"
+      }
+    },
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook subscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_subscribe_results:productsResults});
+
+};
+
+export async function apiShopifyWebhookTriggersCartsUpdate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const body = req.body;
+
+//  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+//  const shopify_session = await initShopifyApiClient(shopURL);
+  console.log("trigger: carts/update - req: %o", req.body);
+  res.send({
+    status:"cart updated!",
+    request: req.body
+  });
+}
