@@ -1,13 +1,14 @@
 import '@shopify/shopify-api/adapters/node';
-import shopify, {shopifyApi, LATEST_API_VERSION, ApiVersion, DataType,} from '@shopify/shopify-api';
 import express, { json, query } from 'express';
 import {MongoClient} from 'mongodb';
 import {HMAC, AuthError} from "hmac-auth-express";
 import dotenv from 'dotenv';
 import {apiProducts,apiProduct} from './routes/main.js';
-import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, apiShopifyProduct, apiShopifyWebhookSubscribe, 
-  apiShopifyWebhookUnsubscribe, apiShopifyWebhooks, apiShopifyWebhookTriggersProductsUpdate, apiShopifyGqlProducts,
-  shopifyAuth,shopifyAuthCallback, apiShopifyWebhookSubscribeCartsUpdate, apiShopifyWebhookTriggersCartsUpdate} 
+import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, apiShopifyProduct,  
+  shopifyAuth,shopifyAuthCallback, 
+  apiShopifyWebhookUnsubscribe, apiShopifyWebhooks, apiShopifyWebhookTriggersProductsUpdate, apiShopifyWebhookSubscribeProductsUpdate,
+  apiShopifyWebhookSubscribeCartsUpdate, apiShopifyWebhookTriggersCartsUpdate,apiShopifyWebhookSubscribeOrdersCreate, apiShopifyWebhookTriggersOrdersCreate,
+  apiShopifyGqlProducts, apiShopifyGqlCartTransforms} 
   from './routes/shopify.js';
 
 dotenv.config();
@@ -89,8 +90,11 @@ app.get('/api/shopify/product/:productId', async (req, res) => {
   apiShopifyProduct(req, res, dbClient);
 });
 
-app.get('/api/shopify/gql-products', async (req, res) => {
+app.get('/api/shopify/gql/products', async (req, res) => {
   apiShopifyGqlProducts(req, res, dbClient);
+});
+app.get('/api/shopify/gql/carttransforms', async (req, res) => {
+  apiShopifyGqlCartTransforms(req, res, dbClient);
 });
 
 app.get('/api/shopify/products', async (req, res) => {
@@ -105,13 +109,19 @@ app.post('/api/shopify/products/import', async (req, res) => {
   apiShopifyProductsImport(req,res,dbClient);
 });
 
-app.get('/api/shopify/webhook/subscribe', async (req, res) => {
-  apiShopifyWebhookSubscribe(req,res,dbClient);
+app.get('/api/shopify/webhook/subscribe/products/update', async (req, res) => {
+  apiShopifyWebhookSubscribeProductsUpdate(req,res,dbClient);
 //  1150082351288
+});
+app.post('/api/shopify/webhook-triggers/products/update', async (req, res) => {
+  apiShopifyWebhookTriggersProductsUpdate(req, res,dbClient);
 });
 app.get('/api/shopify/webhook/subscribe/carts/update', async (req, res) => {
   apiShopifyWebhookSubscribeCartsUpdate(req,res,dbClient);
 //  1150082351288
+});
+app.post('/api/shopify/webhook-triggers/orders/create', async (req, res) => {
+  apiShopifyWebhookTriggersCartsUpdate(req, res,dbClient);
 });
 
 app.get('/api/shopify/webhook/unsubscribe', async (req, res) => {
@@ -125,11 +135,11 @@ app.get('/api/shopify/webhooks', async (req, res) => {
   // 1150082220216
 });
 
-app.post('/api/shopify/webhook-triggers/products/update', async (req, res) => {
-  apiShopifyWebhookTriggersProductsUpdate(req, res,dbClient);
+app.get('/api/shopify/webhook/subscribe/orders/create', async (req, res) => {
+  apiShopifyWebhookSubscribeOrdersCreate(req,res,dbClient);
 });
-app.post('/api/shopify/webhook-triggers/carts/update', async (req, res) => {
-  apiShopifyWebhookTriggersCartsUpdate(req, res,dbClient);
+app.get('/api/shopify/webhook-triggers/orders/create', async (req, res) => {
+  apiShopifyWebhookTriggersOrdersCreate(req,res,dbClient);
 });
 
 app.listen(8000, () => {

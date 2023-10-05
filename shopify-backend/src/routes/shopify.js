@@ -339,93 +339,46 @@ export async function apiShopifyProduct(req, res, _dbClient) {
           res.send({failed:true, error: err.message});
         }
 };
-export async function apiShopifyWebhookSubscribe(req, res, _dbClient) {
+
+export async function apiShopifyGqlCartTransforms(req, res, _dbClient) {
   dbClient = _dbClient;
   const shopURL = req.query.shop;
+
   // get a all products via GET RESTful API call
   const shopify_session = await initShopifyApiClient(shopURL);
 
-  // Session is built by the OAuth process
-  const client = new shopifyApiClient.clients.Rest({
-    session: shopify_session,
-    apiVersion: ApiVersion.January23,
-  });
+  try{
+    const client = new shopifyApiClient.clients.Rest({
+      session: shopify_session,
+      apiVersion: ApiVersion.January23,
+    });
+    const products = await client.post({
+      path: `graphql.json`,
+      data: `query {
+        cartTransforms {
+        }
+      }`
+      ,
+      type: DataType.GraphQL
+    }).catch((err) => {
+      console.log(`error  in calling the shopify client api: ${err.message}`);
+      res.send({error: err.message})
+    });
 
-
-  const productsResults = await client.post({
-    path: `webhooks`,
-    data: {
-      "webhook":{
-        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/products/update`,
-        "topic":"products/update",
-        "format":"json"
+    if (products !== undefined){
+      if (products.body.errors !== undefined){
+        res.send({error: products.body.errors});
+      } else {
+        res.send({products: products.body.data.products});
       }
-    },
-    type: DataType.JSON
-  }).catch((err) => {
-    console.log("webhook subscribe failed: %o" + err.message);
-  });
+    }
+  }catch(err){
+    console.log(`error  in calling the shopify client api: ${err.message}`);
+    res.send({error: err.message});
+  }
 
-  res.send({webhook_subscribe_results:productsResults});
-
-};
-export async function apiShopifyWebhookUnsubscribe(req, res, _dbClient) {
-  dbClient = _dbClient;
-  const shopURL = req.query.shop;
-  const webhook_id = req.query.id;
-  // get a all products via GET RESTful API call
-  const shopify_session = await initShopifyApiClient(shopURL);
-
-  // Session is built by the OAuth process
-  const client = new shopifyApiClient.clients.Rest({
-    session: shopify_session,
-    apiVersion: ApiVersion.January23,
-  });
-  const unsubscribeResults = await client.delete({
-    path: `webhooks/${webhook_id}`,
-    type: DataType.JSON
-  }).catch((err) => {
-    console.log("webhook unsubscribe failed: %o" + err.message);
-  });
-
-  res.send({webhook_unsubscribe_results:unsubscribeResults});
-};
-export async function apiShopifyWebhooks(req, res, _dbClient) {
-  dbClient = _dbClient;
-  const shopURL = req.query.shop;
-  const webhook_id = req.query.id;
-  console.log("will remove webhook id: %o",webhook_id);
-  // get a all products via GET RESTful API call
-  const shopify_session = await initShopifyApiClient(shopURL);
-
-  // Session is built by the OAuth process
-  const client = new shopifyApiClient.clients.Rest({
-    session: shopify_session,
-    apiVersion: ApiVersion.January23,
-  });
-  const webhookList = await client.get({
-    path: `webhooks`,
-    type: DataType.JSON
-  }).catch((err) => {
-    console.log("webhook list failed: %o" + err.message);
-  });
-
-  res.send({webhooks:webhookList});
-
-};
-export async function apiShopifyWebhookTriggersProductsUpdate(req, res, _dbClient) {
-  dbClient = _dbClient;
-  const body = req.body;
-
-//  const shopURL = req.query.shop;
-  // get a all products via GET RESTful API call
-//  const shopify_session = await initShopifyApiClient(shopURL);
-  console.log("trigger: products/update - req: %o", req.body);
-  res.send({
-    status:"product updated!",
-    request: req.body
-  });
 }
+
 export async function apiShopifyGqlProducts(req, res, _dbClient) {
   dbClient = _dbClient;
   const shopURL = req.query.shop;
@@ -471,6 +424,95 @@ export async function apiShopifyGqlProducts(req, res, _dbClient) {
   }
 
 }
+
+
+export async function apiShopifyWebhooks(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  const webhook_id = req.query.id;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const webhookList = await client.get({
+    path: `webhooks`,
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook list failed: %o" + err.message);
+  });
+
+  res.send({webhooks:webhookList});
+
+};
+export async function apiShopifyWebhookUnsubscribe(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  const webhook_id = req.query.id;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+  const unsubscribeResults = await client.delete({
+    path: `webhooks/${webhook_id}`,
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook unsubscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_unsubscribe_results:unsubscribeResults});
+};
+export async function apiShopifyWebhookSubscribeProductsUpdate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+
+
+  const productsResults = await client.post({
+    path: `webhooks`,
+    data: {
+      "webhook":{
+        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/products/update`,
+        "topic":"products/update",
+        "format":"json"
+      }
+    },
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook subscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_subscribe_results:productsResults});
+
+};
+export async function apiShopifyWebhookTriggersProductsUpdate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const body = req.body;
+
+//  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+//  const shopify_session = await initShopifyApiClient(shopURL);
+  console.log("trigger: products/update - req: %o", req.body);
+  res.send({
+    status:"product updated!",
+    request: req.body
+  });
+}
+
 export async function apiShopifyWebhookSubscribeCartsUpdate(req, res, _dbClient) {
   dbClient = _dbClient;
   const shopURL = req.query.shop;
@@ -488,7 +530,7 @@ export async function apiShopifyWebhookSubscribeCartsUpdate(req, res, _dbClient)
     path: `webhooks`,
     data: {
       "webhook":{
-        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/carts/update`,
+        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/carts/update?shop=${shopURL}`,
         "topic":"carts/update",
         "format":"json"
       }
@@ -501,15 +543,59 @@ export async function apiShopifyWebhookSubscribeCartsUpdate(req, res, _dbClient)
   res.send({webhook_subscribe_results:productsResults});
 
 };
-
 export async function apiShopifyWebhookTriggersCartsUpdate(req, res, _dbClient) {
   dbClient = _dbClient;
   const body = req.body;
+  const shopURL = req.query.shop;
 
 //  const shopURL = req.query.shop;
   // get a all products via GET RESTful API call
 //  const shopify_session = await initShopifyApiClient(shopURL);
-  console.log("trigger: carts/update - req: %o", req.body);
+  console.log("trigger: carts/update - shop: %o\n req.body: %o", shopURL, req.body);
+  res.send({
+    status:"cart updated!",
+    request: req.body
+  });
+}
+export async function apiShopifyWebhookSubscribeOrdersCreate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  // Session is built by the OAuth process
+  const client = new shopifyApiClient.clients.Rest({
+    session: shopify_session,
+    apiVersion: ApiVersion.January23,
+  });
+
+
+  const productsResults = await client.post({
+    path: `webhooks`,
+    data: {
+      "webhook":{
+        "address":`https://${shopifyApiClient.config.hostName}/api/shopify/webhook-triggers/orders/create?shop=${shopURL}`,
+        "topic":"orders/create",
+        "format":"json"
+      }
+    },
+    type: DataType.JSON
+  }).catch((err) => {
+    console.log("webhook subscribe failed: %o" + err.message);
+  });
+
+  res.send({webhook_subscribe_results:productsResults});
+
+};
+export async function apiShopifyWebhookTriggersOrdersCreate(req, res, _dbClient) {
+  dbClient = _dbClient;
+  const body = req.body;
+  const shopURL = req.query.shop;
+
+//  const shopURL = req.query.shop;
+  // get a all products via GET RESTful API call
+//  const shopify_session = await initShopifyApiClient(shopURL);
+  console.log("trigger: orders/create - shop: %o\n req.body: %o", shopURL, req.body);
   res.send({
     status:"cart updated!",
     request: req.body
