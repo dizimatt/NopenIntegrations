@@ -148,65 +148,72 @@ const initShopifyApiClient = async (shopURL) => {
     }
 }
       
-export async function apiShopifyProducts(req, res, _dbClient) {
+async function getShopifyProducts(req, _dbClient) {
     dbClient = _dbClient;
-
     const shopURL = req.query.shop;
     // get a all products via GET RESTful API call
     const shopify_session = await initShopifyApiClient(shopURL);
-    try{
-      const client = await new shopifyApiClient.clients.Rest({
-        session: shopify_session,
-        apiVersion: ApiVersion.January23,
-      });
-      const products = await client.get({
-        path: `products.json`
-      }).catch((err) => {
-          const products = {};
-      });
+    const allProducts = {products:[]};
+    var nextPage_query_page_info = "";
+    do{
+      try{
+        const client = await new shopifyApiClient.clients.Rest({
+          session: shopify_session,
+          apiVersion: ApiVersion.January23,
+        });
+        const query = {
+          limit: 50
+        };
+        if (nextPage_query_page_info){
+          query.page_info = nextPage_query_page_info;
+        }
+        const products = await client.get({
+          path: 'products.json',
+          query: query
+        });
 
-      const allProducts = {products:[]};
-      if (products !== undefined){
-        allProducts.products = products.body.products;
+        if (products !== undefined){
+          allProducts.products.push(...products.body.products);
+          if (products.pageInfo.nextPage !== undefined){
+            nextPage_query_page_info = products.pageInfo.nextPage.query.page_info;
+          } else {
+            nextPage_query_page_info = "";
+          }
+        } else {
+          nextPage_query_page_info = "";
+        }
+
+      }catch(err){
+        console.log(`shopify/products: error  in callingthe shopify client api: ${err.message}`);        
+        nextPage_query_page_info = "";
+//        res.send({failed:true, error: err.message});
       }
-
-      res.send(allProducts);
-    }catch(err){
-      console.log(`shopify/products: error  in callingthe shopify client api: ${err.message}`);
-      
-      res.send({failed:true, error: err.message});
-    }
+    } while (nextPage_query_page_info);
+    return allProducts;
 }
+export async function apiShopifyProducts(req, res, _dbClient) {
+  res.send(await getShopifyProducts(req,_dbClient));
+}
+
 export async function apiShopifyProductsIndex(req, res, _dbClient) {
     dbClient = _dbClient;
     const shopURL = req.query.shop;
     // get a all products via GET RESTful API call
-    const shopify_session = await initShopifyApiClient(shopURL);
   
     try{
-      // get a single product via its product id
-      const client = new shopifyApiClient.clients.Rest({
-        session: shopify_session,
-        apiVersion: ApiVersion.January23,
-      });
   
-  
-      const productsResults = await client.get({
-        path: `products`
-      }).catch((err) => {
-        const productsResults = {};
-      });
+//      productsResults = get
+      const productsResults = await getShopifyProducts(req, _dbClient);
   
       const finalProducts = [];
-      if (productsResults){
-  //      const mongoClient = new MongoClient(process.env.MONGO_CLIENT_URL);
-  //      await mongoClient.connect();
+      if (productsResults.products){
       
         const db = dbClient.db('shopify');
   
         db.collection('products').deleteMany({shopURL: shopURL});
   
-        productsResults.body.products.forEach(product => { 
+        //productsResults.body.products.
+        productsResults.products.forEach(product => { 
           finalProducts.push(product);
   
           //now write the same product back to mogodb
@@ -379,7 +386,118 @@ export async function apiShopifyGqlCartTransforms(req, res, _dbClient) {
 
 }
 
+
+async function getGqlProducts(req, _dbClient) {
+    dbClient = _dbClient;
+  const shopURL = req.query.shop;
+
+  // get a all products via GET RESTful API call
+  const shopify_session = await initShopifyApiClient(shopURL);
+  const all_products = {products:[]};
+  var cursor = "";
+
+  do {
+    try{
+      const client = new shopifyApiClient.clients.Rest({
+        session: shopify_session,
+        apiVersion: ApiVersion.January23,
+      });
+      const afterQuery = (cursor?`after: "${cursor}"`:'');
+      const products = await client.post({
+        path: `graphql.json`,
+        data: `query {
+            products(first: 100 ${afterQuery}) {
+              edges {
+                node {
+                  id
+                  title
+                  handle
+                }
+                cursor
+              }
+            }
+          }`
+        ,
+        type: DataType.GraphQL
+      });
+
+      if (products !== undefined){
+        if (products.body.errors !== undefined){
+          console.log('errors: %o', products.body.errors);
+          cursor = "";
+        } else {
+          if (products.body.data.products.edges.length != 0){
+            all_products.products.push(...products.body.data.products.edges);
+            cursor = products.body.data.products.edges.slice(-1)[0].cursor;
+          } else {
+            cursor = "";
+          }
+        }
+      } else {
+        cursor = "";
+      }
+    }catch(err){
+      console.log(`error (2) in calling the shopify client api: ${err.message}`);
+        cursor = "";
+    }
+  } while (cursor)
+  return all_products;
+}
 export async function apiShopifyGqlProducts(req, res, _dbClient) {
+  res.send(await getGqlProducts(req,_dbClient));
+}
+
+export async function apiShopifyGqlBatchDelete(req, res, _dbClient) {
+  const shopURL = req.query.shop;
+  dbClient = _dbClient;
+  const shopify_session = await initShopifyApiClient(shopURL);
+
+  const response = {response:null};
+    try{
+
+      const client = new shopifyApiClient.clients.Rest({
+        session: shopify_session,
+        apiVersion: ApiVersion.January23,
+      });
+  
+      const db = dbClient.db('shopify');
+  
+      var prodQuery = {};
+      if(shopURL){
+        prodQuery = {shopURL:shopURL};
+      }
+      const productsCursor = await db.collection('products').find(prodQuery,{
+        projection: {
+          id:1, title:1
+        }
+      });
+
+      response.response = productsCursor;
+      const allProducts = [];
+      for await (const product of productsCursor){
+          allProducts.push(product);
+          const GQLResponse = await client.post({
+            path: `graphql.json`,
+            data: `mutation {
+              productDelete(input: {id: "gid://shopify/Product/${product.id}"}) {
+                deletedProductId
+              }
+            }`
+            ,
+            type: DataType.GraphQL
+          });
+          console.log("gqlresponse: %o",GQLResponse);
+      }
+      response.response = allProducts;
+    } catch (err) {
+      console.log("failed to collect all products from mongodb! err: %o",err);
+      response.response = `failed - message: ${err.message}`;
+    }
+
+  // first get 
+  res.send(response);
+
+  /*
   dbClient = _dbClient;
   const shopURL = req.query.shop;
 
@@ -422,6 +540,7 @@ export async function apiShopifyGqlProducts(req, res, _dbClient) {
     console.log(`error  in calling the shopify client api: ${err.message}`);
     res.send({error: err.message});
   }
+  */
 
 }
 

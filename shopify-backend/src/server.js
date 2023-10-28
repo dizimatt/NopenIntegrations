@@ -8,7 +8,8 @@ import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, a
   shopifyAuth,shopifyAuthCallback, 
   apiShopifyWebhookUnsubscribe, apiShopifyWebhooks, apiShopifyWebhookTriggersProductsUpdate, apiShopifyWebhookSubscribeProductsUpdate,
   apiShopifyWebhookSubscribeCartsUpdate, apiShopifyWebhookTriggersCartsUpdate,apiShopifyWebhookSubscribeOrdersCreate, apiShopifyWebhookTriggersOrdersCreate,
-  apiShopifyGqlProducts, apiShopifyGqlCartTransforms} 
+  apiShopifyGqlProducts, apiShopifyGqlCartTransforms,
+  apiShopifyGqlBatchDelete} 
   from './routes/shopify.js';
 
 dotenv.config();
@@ -64,6 +65,10 @@ app.use((error, req, res, next) => {
       });
     }
   });
+
+app.get('/api/shopify/gql/batch/delete', (req, res) => {
+  apiShopifyGqlBatchDelete(req, res, dbClient);
+});
 
 app.get('/',(req, res) => {
     res.send('<html><body><h1>you\'ve reached the api endpoints - please contact support for api documentation</h1></body></html>');
