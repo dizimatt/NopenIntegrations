@@ -10,7 +10,7 @@ const ProductsListPage = () => {
 
     const DateNow = Date.now();
     const time = DateNow.toString();
-    const digest = generate("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", "sha256", time, "GET", `/api/products?shop=openresourcing.myshopify.com`, {}).digest("hex");
+    const digest = generate("dummyaccesstoken", "sha256", time, "GET", `/api/products`, {}).digest("hex");
 
 //    const hmac = `HMAC ${time}:${digest}`;
 
@@ -24,7 +24,7 @@ const ProductsListPage = () => {
             }
         }
         const loadProductsList= async () => {
-            const response = await axios.get('/api/products?shop=openresourcing.myshopify.com',config);
+            const response = await axios.get('/api/products',config);
             const newProductsList = response.data.products;
             setProductsList(newProductsList);
         };
