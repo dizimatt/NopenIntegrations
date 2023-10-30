@@ -67,7 +67,7 @@ export async function shopifyAuth(req, res, _dbClient) {
 };
 
 const fetchShopifySession = async (shopURL) => {
-    console.log("shopurl: "+ shopURL);
+//    console.log("shopurl: "+ shopURL);
     //  const client = new MongoClient(process.env.MONGO_CLIENT_URL);
     try{
 //    await client.connect();
@@ -162,7 +162,7 @@ async function getShopifyProducts(req, _dbClient) {
           apiVersion: ApiVersion.January23,
         });
         const query = {
-          limit: 50
+          limit: 100
         };
         if (nextPage_query_page_info){
           query.page_info = nextPage_query_page_info;
@@ -174,7 +174,7 @@ async function getShopifyProducts(req, _dbClient) {
 
         if (products !== undefined){
           allProducts.products.push(...products.body.products);
-          if (products.pageInfo.nextPage !== undefined){
+          if (products.pageInfo !== undefined && products.pageInfo.nextPage !== undefined){
             nextPage_query_page_info = products.pageInfo.nextPage.query.page_info;
           } else {
             nextPage_query_page_info = "";
@@ -184,7 +184,7 @@ async function getShopifyProducts(req, _dbClient) {
         }
 
       }catch(err){
-        console.log(`shopify/products: error  in callingthe shopify client api: ${err.message}`);        
+        console.log(`shopify/products: error  in calling the shopify client api: ${err.message}`);        
         nextPage_query_page_info = "";
 //        res.send({failed:true, error: err.message});
       }

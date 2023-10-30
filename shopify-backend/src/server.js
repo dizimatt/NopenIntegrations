@@ -12,14 +12,18 @@ import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, a
   apiShopifyGqlBatchDelete} 
   from './routes/shopify.js';
 
+
 dotenv.config();
 const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
 
-try{
-  await dbClient.connect();
-} catch (err) {
-  console.log("failed to connect to mongodb!, %o", err);
-}
+async function connectDB(){
+  try{
+    await dbClient.connect();
+  } catch (err) {
+    console.log("failed to connect to mongodb!, %o", err);
+  }    
+};
+
 
 const app = express();
 
@@ -44,8 +48,32 @@ app.use(rawBody);
 
 
 app.use(express.json());
+app.use((req, res, next) => {
+  if (req.query.shop){
+//    console.log(`[middleware]: passed in shopurl: ${req.query.shop}`);
+  }
+  next();
+});
+app.use("/api",(req, res, next) => {
+  if (req.query.shop){
+    connectDB();
+  }
+  next();
+});
+async function getShopifySessionID(req){
+  const db = dbClient.db('shopify');
+  const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: req.query.shop});
+  var accessToken = null;
+  if (ShopifySession){
+    accessToken = ShopifySession.SHOPIFY_ACCESS_TOKEN;
+    console.log(`accessToken: ${accessToken}`);
+  } else {
+    console.log(`accessToken: not found!`);
+  }
+  return accessToken;
+}
 
-//app.use("/api/", HMAC(session.accessToken));
+//app.use("/api", HMAC(getShopifySessionID));
 
 // express' error handler
 app.use((error, req, res, next) => {
@@ -55,10 +83,7 @@ app.use((error, req, res, next) => {
         error: "Invalid request",
         info: error.message,
       });
-    }
-  
-    // alternative: check by error code
-    if (error.code === "ERR_HMAC_AUTH_INVALID") {
+    } else if (error.code === "ERR_HMAC_AUTH_INVALID") {
       res.status(401).json({
         error: "Invalid request",
         info: error.message,
@@ -70,7 +95,7 @@ app.get('/api/shopify/gql/batch/delete', (req, res) => {
   apiShopifyGqlBatchDelete(req, res, dbClient);
 });
 
-app.get('/',(req, res) => {
+app.get('/api',(req, res) => {
     res.send('<html><body><h1>you\'ve reached the api endpoints - please contact support for api documentation</h1></body></html>');
 });
 // next two functions are the shopify app installation functions - add these endpoints into the shopify app config BEFORE installing
