@@ -11,7 +11,8 @@ import {apiShopifyProducts, apiShopifyProductsIndex, apiShopifyProductsImport, a
   apiShopifyGqlProducts, apiShopifyGqlCartTransforms,
   apiShopifyGqlBatchDelete} 
   from './routes/shopify.js';
-
+import {createHmac} from 'crypto';
+//import { generate} from "hmac-auth-express";
 
 dotenv.config();
 const dbClient = new MongoClient(process.env.MONGO_CLIENT_URL);
@@ -54,40 +55,66 @@ app.use((req, res, next) => {
   }
   next();
 });
+
 app.use("/api",(req, res, next) => {
   if (req.query.shop){
     connectDB();
   }
   next();
 });
-async function getShopifySessionID(req){
-  const db = dbClient.db('shopify');
-  const ShopifySession = await db.collection('shopifySession').findOne({SHOPIFY_SESSION_SHOP: req.query.shop});
-  var accessToken = null;
-  if (ShopifySession){
-    accessToken = ShopifySession.SHOPIFY_ACCESS_TOKEN;
-    console.log(`accessToken: ${accessToken}`);
-  } else {
-    console.log(`accessToken: not found!`);
-  }
-  return accessToken;
-}
 
-//app.use("/api", HMAC(getShopifySessionID));
+//app.use("/api", HMAC("a4f0fa2eaab7c9676b95e2b35eab4d97"));
+app.use("/api",(req, res, next) => {
+  const time = req.query.timestamp;
+  var path = ""; //req.query.path_prefix + '/librarytemplates';
+//  path += `?productId=${req.query.productId}&shop=${req.query.shop}`;
+
+  const queryProperties = [];
+  for (const queryKey of Object.keys(req.query)){
+    if (queryKey !== "signature"){
+      queryProperties.push(`${queryKey}=${req.query[queryKey]}`);
+    }
+  }
+  queryProperties.sort();
+  path=queryProperties.join("");
+  /*  
+  for (const property of queryProperties){
+      path += property;
+  } 
+  */
+  console.log(`HMAC rework:...${path}`);
+
+  const hmac = createHmac('sha256','a4f0fa2eaab7c9676b95e2b35eab4d97');
+  hmac.update(path);
+  const digest = hmac.digest().toString('hex');
+
+//  const digest = generate("a4f0fa2eaab7c9676b95e2b35eab4d97", "sha256", '', "GET", path, {}).digest("hex");
+  console.log(`expected hmac: ${digest}\n got HMAC: ${req.query.signature}`);
+  if (digest !== req.query.signature){
+    console.log("headers: %o", req.headers);
+    next();
+  } else {
+    next();
+  }
+});
 
 // express' error handler
-app.use((error, req, res, next) => {
+
+ app.use( async (error, req, res, next) => {
     // check by error instance
+//    next();
     if (error instanceof AuthError) {
-      res.status(401).json({
-        error: "Invalid request",
-        info: error.message,
-      });
-    } else if (error.code === "ERR_HMAC_AUTH_INVALID") {
-      res.status(401).json({
-        error: "Invalid request",
-        info: error.message,
-      });
+      console.log("Autherror request - error.code: %o",error.code);
+      console.log("error.message: %o",error.message);
+      console.log("req.query: %o", req.query);
+      console.log("req.headers: %o", req.headers);
+      next();
+    } else {
+      console.log("Invalid request - error.code: %o",error.code);
+      console.log("error.message: %o",error.message);
+      console.log("req.query: %o", req.query);
+      console.log("req.headers: %o", req.headers);
+      next();
     }
   });
 
